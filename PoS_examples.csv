@@ -1,0 +1,25 @@
+PoS,category,examples
+ArtP,Article/Possessive Pronoun,"the, a, my, your, our"
+Prep,Preposition,"of, for, with, in, without"
+Conj,Conjunction,"and, but, if, because"
+InfM,Infinitive Marker,to (in 'to go')
+Pron,Pronoun,"I, you, anyone, who, mine"
+Verb,Verb,"is, have, go, can, running"
+Detr,Determiner,"this, some, which, all"
+Neg,Negation,"not, n't"
+Noun,Names and proper nouns,"James, October, Unix"
+Exst,Existential 'there',there (in 'there is')
+Num,Number,"one, first, two-thirds"
+Adv,Adverb,"very, here, how, now"
+Noun,Noun,"book, London, Monday, cm"
+Adj,Adjective,"big, older, best, able"
+Intj,Interjection,"oh, yes, um, well"
+Abbr,Abbreviation,"BBC, UNICEF"
+AuxV,Modal Auxiliary,"cannot go, cannot see, cannot understand"
+IrrN,Rare or irregular word (noun?),"netware, polymerase, tbsp"
+Irr,Rare or irregular word,"netware, polymerase, tbsp"
+Conj,NA,NA
+Pron,NA,NA
+Intj,NA,NA
+Pron,Possessive,"Tom's, cat's, girl's, boy's"
+Time,NA,NA
