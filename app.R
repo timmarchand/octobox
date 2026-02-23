@@ -374,13 +374,17 @@ server <- function(input, output, session) {
   # Data Input Processing ----
   data_input_return <- dataInputServer("data_input")
 
-  safe_text_and_meta <- reactive({
+safe_text_and_meta <- reactive({
     tryCatch({
       data <- data_input_return$selected_text_and_meta()
       if (is.null(data) || is.null(data$text)) return(NULL)
-      text_clean <- data$text[!is.na(data$text)]
-      meta_clean <- data$meta[!is.na(data$meta)]
-      list(text = text_clean, meta = meta_clean[seq_along(text_clean)])
+      
+      # FIX: Filter both vectors together using the same index
+      valid_idx <- !is.na(data$text) & !is.na(data$meta)
+      text_clean <- data$text[valid_idx]
+      meta_clean <- data$meta[valid_idx]
+      
+      list(text = text_clean, meta = meta_clean)
     }, error = function(e) NULL)
   })
 
