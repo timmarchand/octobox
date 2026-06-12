@@ -2,6 +2,27 @@
 # modules/ui_references.R - Academic References & Further Reading ----
 # =============================================================================
 
+# Helper: a download card for the Code tab.
+# Files live in www/code/ and are served statically, so a plain anchor with
+# the `download` attribute works reliably (no server-side downloadHandler).
+download_card <- function(emoji, title, accent, description, href) {
+  div(
+    style = paste0("border: 1px solid #e1e8ed; border-top: 4px solid ", accent,
+                   "; border-radius: 8px; padding: 18px; display: flex; flex-direction: column; ",
+                   "background-color: #ffffff; box-shadow: 0 1px 4px rgba(0,0,0,0.04);"),
+    div(style = "font-size: 30px; margin-bottom: 8px;", emoji),
+    h4(title, style = paste0("margin: 0 0 8px 0; color: ", accent, ";")),
+    p(description, style = "color: #555; font-size: 13px; line-height: 1.5; flex-grow: 1;"),
+    tags$a(
+      href = href,
+      download = NA,
+      class = "btn btn-default",
+      style = paste0("margin-top: 12px; border-color: ", accent, "; color: ", accent, ";"),
+      icon("download"), " Download R Project"
+    )
+  )
+}
+
 referencesUI <- function(id) {
   ns <- NS(id)
   
@@ -9,12 +30,27 @@ referencesUI <- function(id) {
     div(
       style = "max-width: 1200px; margin: 0 auto; padding: 20px;",
       
-      h2("📚 References & Further Reading", style = "color: #2c3e50; margin-bottom: 30px;"),
+      h2("🧭 Explore Further", style = "color: #2c3e50; margin-bottom: 20px;"),
       
       div(
-        style = "background-color: #e8f4f8; border-left: 4px solid #3498db; padding: 15px; margin-bottom: 30px; border-radius: 4px;",
-        p(strong("About this page:"), "This collection of references provides theoretical foundations and methodological guidance for the corpus analysis techniques implemented in this tool. Each section corresponds to a module in the application.", style = "margin: 0; font-size: 14px;")
+        style = "background-color: #e8f4f8; border-left: 4px solid #3498db; padding: 15px; margin-bottom: 25px; border-radius: 4px;",
+        p(strong("About this page:"), "Go beyond the app: read the research behind each technique, download standalone R code that reproduces the analyses outside Shiny, and discover related tools.", style = "margin: 0; font-size: 14px;")
       ),
+      
+      tabsetPanel(
+        id = ns("explore_tabs"),
+        type = "tabs",
+        
+        # =====================================================================
+        # SUB-TAB 1: READING ----
+        # =====================================================================
+        tabPanel(
+          title = tagList(icon("book"), " Reading"),
+          br(),
+          div(
+            style = "background-color: #f8f9fa; border-radius: 4px; padding: 12px 15px; margin-bottom: 25px;",
+            p("Theoretical foundations and methodological guidance for the corpus analysis techniques in this tool. Each section corresponds to a module in the application.", style = "margin: 0; font-size: 14px; color: #555;")
+          ),
       
       # TTR Section ----
       div(
@@ -178,13 +214,104 @@ referencesUI <- function(id) {
         )
       ),
       
-      # Footer ----
-      hr(),
-      div(
-        style = "text-align: center; color: #7f8c8d; font-size: 13px; margin-top: 30px;",
-        p("This tool implements computational methods from corpus linguistics research."),
-        p("For questions about specific implementations, consult the referenced papers above.")
-      )
+          # Reading footer ----
+          hr(),
+          div(
+            style = "text-align: center; color: #7f8c8d; font-size: 13px; margin-top: 30px;",
+            p("This tool implements computational methods from corpus linguistics research."),
+            p("For questions about specific implementations, consult the referenced papers above.")
+          )
+        ),  # close Reading tabPanel
+        
+        # =====================================================================
+        # SUB-TAB 2: CODE ----
+        # =====================================================================
+        tabPanel(
+          title = tagList(icon("code"), " Code"),
+          br(),
+          div(
+            style = "background-color: #f8f9fa; border-radius: 4px; padding: 12px 15px; margin-bottom: 25px;",
+            p("Each download is a self-contained R Project that reproduces one of Octobox's analyses ", strong("outside Shiny"), " - a plain script you can open in RStudio, run on the included sample corpus, and adapt to your own data. Each zip contains an ", code(".Rproj"), ", a commented ", code(".R"), " script, a sample CSV, and a short README.", style = "margin: 0; font-size: 14px; color: #555;")
+          ),
+          
+          # Card builder is defined inline below via download_card()
+          div(
+            style = "display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 18px;",
+            
+            download_card(
+              "📈", "Frequency Analysis", "#9b59b6",
+              "Word and n-gram frequency lists, with optional stopword removal and grouping by metadata.",
+              "code/frequency_analysis.zip"
+            ),
+            download_card(
+              "🔍", "KWIC & Collocation", "#16a085",
+              "Keyword-in-context concordance lines plus statistically notable collocations.",
+              "code/kwic_collocation.zip"
+            ),
+            download_card(
+              "🎯", "Keyword Analysis", "#e67e22",
+              "Keyness comparison of a target sub-corpus against a reference sub-corpus.",
+              "code/keyword_analysis.zip"
+            ),
+            download_card(
+              "📍", "Dispersion Analysis", "#2980b9",
+              "How evenly words spread across a corpus, via Gries' Deviation of Proportions and range.",
+              "code/dispersion_analysis.zip"
+            ),
+            download_card(
+              "🏷️", "POS Tagging", "#c0392b",
+              "Part-of-speech tags and lemmas with a udpipe model, plus a POS distribution summary.",
+              "code/pos_tagging.zip"
+            ),
+            download_card(
+              "📊", "Tokenization & Diversity", "#27ae60",
+              "Tokenisation, token/type counts, and lexical diversity measures (TTR, CTTR, MATTR).",
+              "code/tokenization_diversity.zip"
+            )
+          ),
+          
+          hr(style = "margin-top: 30px;"),
+          div(
+            style = "text-align: center; color: #7f8c8d; font-size: 13px;",
+            p("Scripts are released under the same MIT licence as Octobox. First run of the POS script downloads the udpipe model (~16 MB).")
+          )
+        ),  # close Code tabPanel
+        
+        # =====================================================================
+        # SUB-TAB 3: MDA TAGGER ----
+        # =====================================================================
+        tabPanel(
+          title = tagList(icon("diagram-project"), " MDA Tagger"),
+          br(),
+          div(
+            style = "max-width: 720px; margin: 20px auto; background-color: #ffffff; border: 1px solid #e1e8ed; border-radius: 8px; padding: 30px; text-align: center; box-shadow: 0 2px 6px rgba(0,0,0,0.05);",
+            div(style = "font-size: 46px; margin-bottom: 10px;", "🧩"),
+            h3("MDA Tagger", style = "color: #2c3e50; margin-bottom: 12px;"),
+            p("A Multi-Dimensional Analysis toolkit for linguistic corpus analysis, based on Biber (1988). Upload texts (TXT, CSV, DOCX), tag them with UDPipe, and extract 67+ linguistic features to produce 5-dimensional MDA scores and text-type classifications, with interactive visualisations throughout.",
+              style = "color: #555; font-size: 15px; line-height: 1.6; margin-bottom: 18px;"),
+            div(
+              style = "text-align: left; max-width: 460px; margin: 0 auto 22px auto; color: #555; font-size: 14px; line-height: 1.7;",
+              tags$ul(
+                style = "padding-left: 20px; margin: 0;",
+                tags$li("Multi-format upload with corpus metadata management"),
+                tags$li("POS tagging with UDPipe and 67+ feature extraction"),
+                tags$li("5-dimensional MDA scoring and text-type classification"),
+                tags$li("KWIC concordancing of tags and exportable plot code")
+              )
+            ),
+            tags$a(
+              href = "https://github.com/timmarchand/mda_tagger",
+              target = "_blank",
+              class = "btn btn-primary",
+              style = "background-color: #24292e; border-color: #24292e; padding: 10px 26px; font-size: 15px;",
+              icon("github"), " View on GitHub"
+            ),
+            p(style = "margin-top: 16px; font-size: 12px; color: #95a5a6;",
+              "Opens in a new tab. A hosted version on Connect Cloud is coming soon.")
+          )
+        )  # close MDA Tagger tabPanel
+        
+      )  # close tabsetPanel
     )
   )
 }

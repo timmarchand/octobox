@@ -55,12 +55,12 @@ UNIFIED_FREQ_DF <- tryCatch({
     
     expected_cols <- c("token", "headword", "tokenRank", "headRank",
                        "tokenBand", "headBand", "tokenFreq", "headFreq", "PoS")
-
+    
     missing_cols <- setdiff(expected_cols, names(freq_data))
     if (length(missing_cols) > 0) {
       cat("Warning: Missing expected columns:", paste(missing_cols, collapse = ", "), "\n")
     }
-
+    
     freq_data <- freq_data %>%
       mutate(
         token = tolower(as.character(token)),
@@ -157,7 +157,7 @@ source("utils/tagged_conversion.R")
 # 6. UI DEFINITION ----
 ui <- fluidPage(
   title = "Corpus Analysis Tool",
-
+  
   # CSS Styles
   tags$head(
     tags$style(HTML("
@@ -166,33 +166,33 @@ ui <- fluidPage(
       .feature-info { background-color: #e8f5e8; border-left: 4px solid #4caf50; padding: 8px 12px; margin: 5px 0; font-size: 12px; border-radius: 3px; }
     "))
   ),
-
+  
   sidebarLayout(
     
     # Sidebar Panel ----
     sidebarPanel(
       width = 3,
-
+      
       # Logo/Branding
       div(
         style = "text-align: center; margin-bottom: 20px; padding: 15px; background: linear-gradient(135deg, #1976d2 0%, #42a5f5 100%); border-radius: 8px; color: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1);",
         h3("OCTOBOX", style = "margin: 0; font-weight: 700; font-size: 24px; letter-spacing: 2px;"),
         h5("Online Corpus Toolbox", style = "margin: 5px 0 0 0; font-weight: 400; font-size: 14px; letter-spacing: 0.5px;")
       ),
-
+      
       # Features Indicator
       conditionalPanel(
         condition = "output.data_features_available",
         div(class = "feature-info", HTML("✓ <strong>Features Active:</strong> Frequency database active"))
       ),
-
+      
       # Data Input
       div(
         style = "border-bottom: 1px solid #dee2e6; padding-bottom: 15px; margin-bottom: 15px;",
         h5("📁 Data Input", style = "color: #495057; margin-top: 0;"),
         dataInputUI("data_input")
       ),
-
+      
       # Data Preview
       conditionalPanel(
         condition = "output.show_preview",
@@ -202,7 +202,7 @@ ui <- fluidPage(
           div(style = "max-height: 200px; overflow-y: auto; font-size: 12px;", tableOutput("file_preview"))
         )
       ),
-
+      
       # Meta Filter
       div(
         style = "border-bottom: 1px solid #dee2e6; padding-bottom: 15px; margin-bottom: 15px;",
@@ -219,7 +219,7 @@ ui <- fluidPage(
         ),
         checkboxGroupInput("meta_filter_global", "Filter by Meta Group:", choices = NULL)
       ),
-
+      
       # Tokenization Sidebar
       div(
         h5("⚙️ Tokenization", style = "color: #495057;"),
@@ -227,14 +227,14 @@ ui <- fluidPage(
         tokenizationUI("tokenization")
       )
     ),
-
+    
     # Main Panel Tabs ----
     mainPanel(
       width = 9,
       tabsetPanel(
         id = "main_tabs",
         type = "tabs",
-
+        
         # Tab 1: Summary
         tabPanel("📊 Corpus Summary",
                  div(style = "padding: 20px;",
@@ -245,26 +245,26 @@ ui <- fluidPage(
                        div(class = "performance-indicator", HTML("📊 <strong>Large Corpus Detected:</strong> optimized"))
                      ),
                      div(style = "margin-bottom: 20px;",
-                       fluidRow(
-                         column(6, radioButtons("token_summary-summary_view", "Summary View:", choices = c("Per Text" = "text", "By Meta Group" = "meta", "Whole Corpus" = "corpus"), inline = TRUE)),
-                         column(6, br(), downloadButton("token_summary-download_token_summary", "📥 Download Summary", class = "btn-outline-primary"))
-                       )
+                         fluidRow(
+                           column(6, radioButtons("token_summary-summary_view", "Summary View:", choices = c("Per Text" = "text", "By Meta Group" = "meta", "Whole Corpus" = "corpus"), inline = TRUE)),
+                           column(6, br(), downloadButton("token_summary-download_token_summary", "📥 Download Summary", class = "btn-outline-primary"))
+                         )
                      ),
                      div(style = "margin: 20px 0;",
-                       tags$details(
-                         tags$summary(style = "cursor: pointer; font-weight: bold; color: #2e7d32; padding: 10px; background-color: #e8f5e8; border-radius: 3px;", "📈 Statistical Measures Explained"),
-                         div(style = "padding: 15px; background-color: #e8f5e8; border-radius: 0 0 5px 5px; border-top: 1px solid #c8e6c8;",
-                           tags$ul(
-                             tags$li(HTML("<strong>TTR:</strong> Vocabulary richness.")),
-                             tags$li(HTML("<strong>Sample TTR-400:</strong> Normalized richness."))
+                         tags$details(
+                           tags$summary(style = "cursor: pointer; font-weight: bold; color: #2e7d32; padding: 10px; background-color: #e8f5e8; border-radius: 3px;", "📈 Statistical Measures Explained"),
+                           div(style = "padding: 15px; background-color: #e8f5e8; border-radius: 0 0 5px 5px; border-top: 1px solid #c8e6c8;",
+                               tags$ul(
+                                 tags$li(HTML("<strong>TTR:</strong> Vocabulary richness.")),
+                                 tags$li(HTML("<strong>Sample TTR-400:</strong> Normalized richness."))
+                               )
                            )
                          )
-                       )
                      ),
                      DT::dataTableOutput("token_summary-token_summary")
                  )
         ),
-
+        
         # Tab 2: Frequency
         tabPanel("📈 Frequency Analysis",
                  div(style = "padding: 20px;",
@@ -273,7 +273,7 @@ ui <- fluidPage(
                      frequencyUI("frequency")
                  )
         ),
-
+        
         # Tab 3: PoS
         tabPanel("📝 Part-of-Speech",
                  div(style = "padding: 20px;",
@@ -282,13 +282,13 @@ ui <- fluidPage(
                      posUI("pos_analysis")
                  )
         ),
-
+        
         # Tab 4: Dispersion
         tabPanel("📍 Dispersion", div(style = "padding: 20px;", dispersionUI("dispersion"))),
-
+        
         # Tab 5: Keyword
         tabPanel("🎯 Keyword Analysis", div(style = "padding: 20px;", keywordUI("keyword"))),
-
+        
         # Tab 6: KWIC
         tabPanel("🔍 KWIC & Collocation",
                  fluidPage(
@@ -297,13 +297,13 @@ ui <- fluidPage(
                    fluidRow(column(12, div(style = "background: #ffffff; border: 1px solid #dee2e6; border-radius: 8px; padding: 25px; margin-bottom: 20px;", collocationUI("collocation"))))
                  )
         ),
-# Tab 7: Tagging
-tabPanel("POS Tagging", icon = icon("tags"), taggingUI("tagging")),
-
-# Tab 8: References
-tabPanel("References", 
-         icon = icon("book"),
-         referencesUI("references"))
+        # Tab 7: Tagging
+        tabPanel("POS Tagging", icon = icon("tags"), taggingUI("tagging")),
+        
+        # Tab 8: Explore Further
+        tabPanel("Explore Further", 
+                 icon = icon("compass"),
+                 referencesUI("references"))
       )  # Close tabsetPanel
     )    # Close mainPanel
   )      # Close sidebarLayout
@@ -311,14 +311,14 @@ tabPanel("References",
 
 # 7. SERVER DEFINITION ----
 server <- function(input, output, session) {
-
+  
   # Performance Monitoring ----
   performance_metrics <- reactiveValues(
     cache_hits = 0,
     cache_misses = 0,
     optimizations_applied = 0
   )
-
+  
   # State Management & Shared Values ----
   shared_values <- reactiveValues(
     has_tagged_tokens = FALSE,
@@ -334,7 +334,7 @@ server <- function(input, output, session) {
     current_data_signature = NULL,
     processing_large_corpus = FALSE
   )
-
+  
   # Data Diagnostics Observer ----
   observe({
     if (is.null(values$unified_freq_df)) {
@@ -350,31 +350,31 @@ server <- function(input, output, session) {
       if (!is.null(freq_data)) values$unified_freq_df <- freq_data
     }
   })
-
+  
   # UI Status Indicators ----
   output$data_features_available <- reactive({
     !is.null(values$unified_freq_df) && !is.null(values$pos_examples_df)
   })
   outputOptions(output, "data_features_available", suspendWhenHidden = FALSE)
-
+  
   output$meta_groups_count <- reactive({
     data <- safe_text_and_meta()
     if (is.null(data)) return(0)
     length(unique(data$meta))
   })
   outputOptions(output, "meta_groups_count", suspendWhenHidden = FALSE)
-
+  
   output$corpus_size_large <- reactive({
     data <- safe_text_and_meta()
     if (is.null(data)) return(FALSE)
     length(data$text) > 1000 || sum(nchar(data$text)) > 100000
   })
   outputOptions(output, "corpus_size_large", suspendWhenHidden = FALSE)
-
+  
   # Data Input Processing ----
   data_input_return <- dataInputServer("data_input")
-
-safe_text_and_meta <- reactive({
+  
+  safe_text_and_meta <- reactive({
     tryCatch({
       data <- data_input_return$selected_text_and_meta()
       if (is.null(data) || is.null(data$text)) return(NULL)
@@ -387,11 +387,11 @@ safe_text_and_meta <- reactive({
       list(text = text_clean, meta = meta_clean)
     }, error = function(e) NULL)
   })
-
+  
   # Sidebar Previews & Filters ----
   output$show_preview <- reactive({ !is.null(data_input_return$uploaded_data()) })
   outputOptions(output, "show_preview", suspendWhenHidden = FALSE)
-
+  
   output$file_preview <- renderTable({
     req(data_input_return$uploaded_data())
     data <- data_input_return$uploaded_data()
@@ -401,81 +401,81 @@ safe_text_and_meta <- reactive({
       head(data.frame(File = sapply(data$file_info, function(x) x$filename), Lines = sapply(data$file_info, function(x) length(x$content))), 10)
     } else head(data$content, 5)
   })
-
+  
   observe({
     data <- safe_text_and_meta()
     req(data$meta)
     choices <- unique(data$meta[data$meta != ""])
     updateCheckboxGroupInput(session, "meta_filter_global", choices = choices, selected = choices)
   })
-
+  
   observeEvent(input$select_all_meta, {
     choices <- unique(safe_text_and_meta()$meta)
     updateCheckboxGroupInput(session, "meta_filter_global", selected = choices)
   })
   observeEvent(input$deselect_all_meta, { updateCheckboxGroupInput(session, "meta_filter_global", selected = character(0)) })
-
+  
   safe_meta_filter <- reactive({ input$meta_filter_global })
-
+  
   # Module Server Calls ----
   tokenization_return <- tokenizationServer("tokenization", safe_text_and_meta, safe_meta_filter, values)
   tokenSummaryServer("token_summary", tokenization_return$token_data, safe_meta_filter)
   
-# KWIC Module
-kwic_return <- kwicServer(
-  "kwic",
-  tokenization_return$token_data,
-  safe_meta_filter,
-  tagged_data = reactive({
-    list(
-      available = shared_values$has_tagged_tokens,
-      df = shared_values$tagged_df
-    )
-  })
-)
+  # KWIC Module
+  kwic_return <- kwicServer(
+    "kwic",
+    tokenization_return$token_data,
+    safe_meta_filter,
+    tagged_data = reactive({
+      list(
+        available = shared_values$has_tagged_tokens,
+        df = shared_values$tagged_df
+      )
+    })
+  )
   kwicResultsServer("kwic_results", kwic_return)
   collocationServer("collocation", kwic_return)
   
   frequencyServer("frequency", tokenization_return$token_data, safe_meta_filter, values, 
                   tagged_data = reactive({ list(available = shared_values$has_tagged_tokens, df = shared_values$tagged_df) }))
-
+  
   posServer("pos_analysis", tokenization_return$token_data, safe_meta_filter, values,
             tagged_data = reactive({ list(available = shared_values$has_tagged_tokens, df = shared_values$tagged_df) }))
-
-# Keyword Module
-keywordServer(
-  "keyword",
-  tokenization_return$token_data,
-  safe_text_and_meta,
-  safe_meta_filter,
-  tagged_data = reactive({  # ← ADD THIS
-    list(
-      available = shared_values$has_tagged_tokens,
-      df = shared_values$tagged_df
-    )
-  })
-)
-# Dispersion Module
-dispersionServer(
-  "dispersion",
-  tokenization_return$token_data,
-  safe_meta_filter,
-  tagged_data = reactive({  # ← ADD THIS
-    list(
-      available = shared_values$has_tagged_tokens,
-      df = shared_values$tagged_df
-    )
-  })
-)
-
-taggingServer("tagging", tokenization_return$token_data, tokenization_return$meta_filter, shared_values = shared_values) 
-
+  
+  # Keyword Module
+  keywordServer(
+    "keyword",
+    tokenization_return$token_data,
+    safe_text_and_meta,
+    safe_meta_filter,
+    tagged_data = reactive({  # ← ADD THIS
+      list(
+        available = shared_values$has_tagged_tokens,
+        df = shared_values$tagged_df
+      )
+    })
+  )
+  # Dispersion Module
+  dispersionServer(
+    "dispersion",
+    tokenization_return$token_data,
+    safe_meta_filter,
+    tagged_data = reactive({  # ← ADD THIS
+      list(
+        available = shared_values$has_tagged_tokens,
+        df = shared_values$tagged_df
+      )
+    })
+  )
+  
+  taggingServer("tagging", tokenization_return$token_data, tokenization_return$meta_filter, shared_values = shared_values) 
+  
   # Housekeeping & Cleanup ----
   observe({
     invalidateLater(30000)
     if (values$processing_large_corpus) gc()
   })
-
+  
   session$onSessionEnded(function() { gc() })
 }
 
