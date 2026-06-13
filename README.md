@@ -7,7 +7,7 @@ linguistics techniques together in a single browser-based interface. It is
 designed for researchers, teachers, and students who want to explore texts
 without writing code.
 
-## 🚀 Try it online
+## 🌐 Live App
 
 You can use Octobox directly in your browser — no installation required:
 
