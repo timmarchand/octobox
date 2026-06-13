@@ -299,15 +299,25 @@ referencesUI <- function(id) {
                 tags$li("KWIC concordancing of tags and exportable plot code")
               )
             ),
-            tags$a(
-              href = "https://github.com/timmarchand/mda_tagger",
-              target = "_blank",
-              class = "btn btn-primary",
-              style = "background-color: #24292e; border-color: #24292e; padding: 10px 26px; font-size: 15px;",
-              icon("github"), " View on GitHub"
+            div(
+              style = "display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;",
+              tags$a(
+                href = "https://timmarchand-mda-tagger.share.connect.posit.cloud/",
+                target = "_blank",
+                class = "btn btn-primary",
+                style = "background-color: #3498db; border-color: #3498db; padding: 10px 26px; font-size: 15px;",
+                icon("up-right-from-square"), " Open MDA Tagger"
+              ),
+              tags$a(
+                href = "https://github.com/timmarchand/mda_tagger",
+                target = "_blank",
+                class = "btn btn-default",
+                style = "border-color: #24292e; color: #24292e; padding: 10px 26px; font-size: 15px;",
+                icon("github"), " View on GitHub"
+              )
             ),
             p(style = "margin-top: 16px; font-size: 12px; color: #95a5a6;",
-              "Opens in a new tab. A hosted version on Connect Cloud is coming soon.")
+              "Opens in a new tab.")
           )
         )  # close MDA Tagger tabPanel
         
