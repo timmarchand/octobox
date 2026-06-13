@@ -1,0 +1,44 @@
+cff-version: 1.2.0
+title: "Octobox: An Online Toolbox for Corpus Linguistics"
+message: "If you use this software, please cite it using the metadata from this file."
+type: software
+authors:
+  - family-names: Marchand
+    given-names: Tim
+repository-code: "https://github.com/timmarchand/octobox"
+url: "https://timmarchand-octobox.share.connect.posit.cloud/"
+abstract: >-
+  Octobox is an R Shiny application for corpus analysis, bringing common
+  corpus linguistics techniques (frequency, keyword/keyness, KWIC and
+  collocation, dispersion, part-of-speech tagging, and lexical diversity)
+  together in a single browser-based interface for researchers, teachers,
+  and students.
+keywords:
+  - corpus linguistics
+  - data-driven learning
+  - R
+  - Shiny
+  - concordance
+  - keyword analysis
+license: MIT
+date-released: "2026-01-01"
+preferred-citation:
+  type: generic
+  title: "Octobox: An Online Toolbox for Corpus Linguistics"
+  authors:
+    - family-names: Marchand
+      given-names: Tim
+  year: 2026
+  url: "https://github.com/timmarchand/octobox"
+references:
+  - type: conference-paper
+    title: "Octobox: A frictionless web-based toolkit for corpus-informed pedagogy in an AI-mediated classroom"
+    authors:
+      - family-names: Marchand
+        given-names: Tim
+    year: 2026
+    month: 7
+    conference:
+      name: "17th International Teaching and Language Corpora (TaLC) Conference"
+    location:
+      name: "University of Extremadura, Jarandilla de la Vera, Spain"
