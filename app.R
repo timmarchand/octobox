@@ -300,8 +300,8 @@ ui <- fluidPage(
         # Tab 7: Tagging
         tabPanel("POS Tagging", icon = icon("tags"), taggingUI("tagging")),
         
-        # Tab 8: Explore Further
-        tabPanel("Explore Further", 
+        # Tab 8: Resources
+        tabPanel("Resources", 
                  icon = icon("compass"),
                  referencesUI("references"))
       )  # Close tabsetPanel
