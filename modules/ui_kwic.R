@@ -19,20 +19,20 @@ kwicUI <- function(id) {
         h5("🏷️ Tagged Corpus Available", style = "margin-top: 0; color: #0056b3;"),
         
         checkboxInput(ns("use_tagged_tokens"),
-                     "Analyze tagged corpus for KWIC",
-                     value = FALSE),
+                      "Analyze tagged corpus for KWIC",
+                      value = FALSE),
         
         conditionalPanel(
           condition = paste0("input['", ns("use_tagged_tokens"), "'] == true"),
           
           radioButtons(ns("tag_column"),
-                      "Tag type:",
-                      choices = list(
-                        "XPOS tags (word_NN)" = "xpos",
-                        "UPOS tags (word_NOUN)" = "upos",
-                        "POS only (NN)" = "pos_only"
-                      ),
-                      selected = "xpos"),
+                       "Tag type:",
+                       choices = list(
+                         "XPOS tags (word_NN)" = "xpos",
+                         "UPOS tags (word_NOUN)" = "upos",
+                         "POS only (NN)" = "pos_only"
+                       ),
+                       selected = "xpos"),
           
           div(
             style = "font-size: 12px; color: #6c757d; margin-top: 10px; padding: 10px; background-color: #f8f9fa; border-radius: 3px;",
@@ -77,9 +77,11 @@ kwicUI <- function(id) {
     
     # 1.2. Context Settings ----
     fluidRow(
-      column(6, numericInput(ns("n"), "Context Window (n)", value = 5, min = 1, max = 20)),
-      column(6, style = "margin-top: 25px;", 
-             checkboxInput(ns("separated"), "Separate Columns", TRUE))
+      column(4, numericInput(ns("n"), "Context Window (n)", value = 5, min = 1, max = 20)),
+      column(4, style = "margin-top: 25px;",
+             checkboxInput(ns("separated"), "Separate Columns", TRUE)),
+      column(4, style = "margin-top: 25px;",
+             checkboxInput(ns("use_regex"), "Use Regex", FALSE))
     ),
     
     div(style = "text-align: center; margin-top: 20px;",

@@ -434,7 +434,9 @@ server <- function(input, output, session) {
     })
   )
   kwicResultsServer("kwic_results", kwic_return)
-  collocationServer("collocation", kwic_return)
+  collocationServer("collocation", kwic_return,
+                    token_data = tokenization_return$token_data,
+                    meta_filter = safe_meta_filter)
   
   frequencyServer("frequency", tokenization_return$token_data, safe_meta_filter, values, 
                   tagged_data = reactive({ list(available = shared_values$has_tagged_tokens, df = shared_values$tagged_df) }))
