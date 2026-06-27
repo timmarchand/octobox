@@ -165,11 +165,18 @@ frequencyUI <- function(id) {
       div(
         style = "margin-bottom: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 5px; border: 1px solid #dee2e6;",
         fluidRow(
-          column(4, numericInput(ns("chart_top_n"), "Top N in Charts:", value = 15, min = 5, max = 50)),
-          column(4, br(), actionButton(ns("generate_charts"), "📊 Generate Charts", class = "btn-success")),
-          column(4, br(), conditionalPanel(condition = paste0("output['", ns("charts_available"), "']"), 
-                                           div(style = "color: green;", "✅ Ready")))
-        )
+          column(3, numericInput(ns("chart_top_n"), "Top N in Charts:", value = 15, min = 5, max = 50)),
+          column(3, radioButtons(ns("chart_yaxis"), "Token chart shows:",
+                                 choices = c("Counts" = "count", "Proportion" = "proportion"),
+                                 selected = "count")),
+          column(3, radioButtons(ns("chart_facet_scales"), "Facet axes:",
+                                 choices = c("Fixed" = "fixed", "Free" = "free"),
+                                 selected = "free")),
+          column(3, br(), actionButton(ns("generate_charts"), "📊 Generate Charts", class = "btn-success"),
+                 conditionalPanel(condition = paste0("output['", ns("charts_available"), "']"),
+                                  div(style = "color: green; margin-top: 6px;", "✅ Ready")))
+        ),
+        helpText("Proportion normalises each group by its own size - use it when comparing corpora of different lengths. 'Free' axes let each facet scale independently.")
       ),
       
       # Chart Display Tabs ----

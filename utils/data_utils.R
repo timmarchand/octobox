@@ -14,7 +14,7 @@ library(tibble)
 process_text_for_tokenization_optimized <- function(text, remove_punct = TRUE) {
   start_time <- Sys.time()
   text_processed <- text
-  
+
   # A. Contraction Normalization (Vectorized)
   contraction_patterns <- c(
     "[\u2019\u2018\u0060\u00B4\u2032''`´′]" = "'",
@@ -29,11 +29,11 @@ process_text_for_tokenization_optimized <- function(text, remove_punct = TRUE) {
     "([A-Za-z]+)'m"  = "\\1 'm",
     "([A-Za-z]+)'s\\b" = "\\1 's"
   )
-  
+
   for (pattern in names(contraction_patterns)) {
     text_processed <- gsub(pattern, contraction_patterns[pattern], text_processed, perl = TRUE)
   }
-  
+
   # B. Punctuation Padding (If retaining)
   if (!remove_punct) {
     text_processed <- gsub("([.!?;:])([A-Za-z])", "\\1 \\2", text_processed, perl = TRUE)
@@ -41,7 +41,7 @@ process_text_for_tokenization_optimized <- function(text, remove_punct = TRUE) {
     text_processed <- gsub('(["\'])([A-Za-z])', "\\1 \\2", text_processed, perl = TRUE)
     text_processed <- gsub('([A-Za-z])(["\'])', "\\1 \\2", text_processed, perl = TRUE)
   }
-  
+
   cat("Text processed in:", round(as.numeric(Sys.time() - start_time), 3), "s\n")
   return(text_processed)
 }
@@ -60,30 +60,78 @@ process_pasted_text <- function(pasted_text) {
   if (is.null(pasted_text) || length(pasted_text) == 0) {
     return(list(type = "paste", content = character(0), metadata = character(0)))
   }
-  
+
   # Normalise line endings, then split on blank lines (paragraph boundaries).
   raw <- paste(pasted_text, collapse = "\n")
   raw <- gsub("\r\n?", "\n", raw)
   units <- strsplit(raw, "\n[[:space:]]*\n+", perl = TRUE)[[1]]
-  
+
   # Fall back to line-by-line if there were no blank-line separators.
   if (length(units) <= 1) {
     units <- strsplit(raw, "\n", fixed = TRUE)[[1]]
   }
-  
+
   # Collapse internal newlines within a unit to single spaces, then clean.
   units <- gsub("[[:space:]]*\n[[:space:]]*", " ", units, perl = TRUE)
   content <- clean_text_input(units)
-  
+
   if (length(content) == 0) {
     return(list(type = "paste", content = character(0), metadata = character(0)))
   }
-  
+
   list(
     type = "paste",
     content = content,
     metadata = rep("pasted", length(content))
   )
+}
+
+#' @description Build a stopword vector for filtering tokens.
+#' @param language one of "en","es","fr","de","it","ja","zh".
+#' @param include_contractions if TRUE, also add common contraction fragments
+#'   ("n't","'s","'re",...) so split contractions are removed too.
+#' @param custom_stopwords newline-separated extra words from the user.
+#' @param mode "add" = base list + custom; "replace" = custom only.
+#' @return character vector of lowercased stopwords.
+create_stopword_list <- function(language = "en",
+                                 include_contractions = TRUE,
+                                 custom_stopwords = "",
+                                 mode = "add") {
+
+  # Parse custom words (one per line), trimmed and de-blanked.
+  custom <- character(0)
+  if (!is.null(custom_stopwords) && nzchar(trimws(custom_stopwords))) {
+    custom <- trimws(strsplit(custom_stopwords, "\r?\n")[[1]])
+    custom <- custom[nzchar(custom)]
+  }
+
+  # "replace" mode: ignore the base list entirely, use only custom words.
+  if (identical(mode, "replace")) {
+    return(unique(tolower(custom)))
+  }
+
+  # Base list from quanteda. snowball covers en/es/fr/de/it; ja/zh need the
+  # stopwords-iso source, which may not be installed - fall back gracefully.
+  base <- tryCatch({
+    if (language %in% c("en", "es", "fr", "de", "it")) {
+      quanteda::stopwords(language, source = "snowball")
+    } else {
+      quanteda::stopwords(language, source = "stopwords-iso")
+    }
+  }, error = function(e) {
+    warning(sprintf("No stopword list for '%s' (%s); using English.", language, e$message))
+    tryCatch(quanteda::stopwords("en", source = "snowball"),
+             error = function(e2) character(0))
+  })
+
+  # Contraction fragments produced by the tokenizer's normalisation step.
+  contractions <- character(0)
+  if (isTRUE(include_contractions)) {
+    contractions <- c("n't", "'s", "'re", "'ve", "'ll", "'d", "'m",
+                      "na", "ta")  # gonna/gotta fragments
+  }
+
+  unique(tolower(c(base, contractions, custom)))
 }
 
 # -----------------------------------------------------------------------------
@@ -121,7 +169,7 @@ read_corpus_files <- function(file_input, metadata_assignments = NULL) {
   
   all_content  <- character(0)
   all_metadata <- character(0)
-  
+
   for (i in 1:nrow(file_input)) {
     tryCatch({
       content <- paste(readLines(file_input$datapath[i], warn=F, encoding="UTF-8"), collapse=" ")
@@ -142,7 +190,7 @@ read_corpus_files <- function(file_input, metadata_assignments = NULL) {
 quick_conc <- function(tokens, index, n = 5, separated = TRUE, use_regex = FALSE) {
   if (length(tokens) == 0) return(tibble::tibble())
   tokens  <- as.character(tokens)
-  if (use_regex) {
+   if (use_regex) {
     matches <- grep(index, tokens, ignore.case = TRUE, perl = TRUE)
   } else {
     # For exact match, use tolower on both sides
@@ -150,7 +198,7 @@ quick_conc <- function(tokens, index, n = 5, separated = TRUE, use_regex = FALSE
   }
   
   if (length(matches) == 0) return(tibble::tibble())
-  
+
   results <- list()
   for (i in seq_along(matches)) {
     m_pos <- matches[i]
@@ -180,7 +228,7 @@ quick_conc <- function(tokens, index, n = 5, separated = TRUE, use_regex = FALSE
       )
     }
   }
-  
+
   # Column Ordering Logic
   if (length(results) > 0) {
     if (separated) {

@@ -14,11 +14,11 @@ library(digest)
 #' @description Performs high-speed join between tokens and freq database.
 #' @note Caches results based on tokens_hash to prevent redundant joins.
 get_frequency_info_cached <- memoise(function(tokens_hash, final_result, 
-                                              freq_list_type, selected_ranges, 
-                                              unified_freq_df, pos_examples_df = NULL) {
+                                             freq_list_type, selected_ranges, 
+                                             unified_freq_df, pos_examples_df = NULL) {
   
   if (is.null(unified_freq_df) || nrow(final_result) == 0) return(final_result)
-  
+
   # 1.1. Prepare Lookup Table ----
   freq_lookup <- unified_freq_df %>%
     filter(!is.na(token), token != "", token != " ") %>%
@@ -26,14 +26,14 @@ get_frequency_info_cached <- memoise(function(tokens_hash, final_result,
     group_by(token) %>%
     slice_min(tokenRank, n = 1, with_ties = FALSE) %>%
     ungroup()
-  
+
   # 1.2. Numeric Detection Logic ----
   final_result_clean <- final_result %>%
     mutate(
       token_lower = tolower(as.character(token)),
       is_numeric_token = grepl("^\\d+$", token_lower) | grepl("^\\d+\\.\\d+$", token_lower)
     )
-  
+
   # 1.3. The Join & Mutation ----
   result <- final_result_clean %>%
     left_join(freq_lookup, by = c("token_lower" = "token")) %>%
@@ -53,7 +53,7 @@ get_frequency_info_cached <- memoise(function(tokens_hash, final_result,
       tokenRank = if_else(is_numeric_token & (is.na(tokenRank) | tokenRank == 0), 1L, as.integer(tokenRank %||% 999999L)),
       tokenFreq = if_else(is_numeric_token & (is.na(tokenFreq) | tokenFreq == 0), 1000000L, as.integer(tokenFreq %||% 0L))
     )
-  
+
   # 1.4. Lexical Range Grouping ----
   result <- result %>%
     mutate(
@@ -71,14 +71,14 @@ get_frequency_info_cached <- memoise(function(tokens_hash, final_result,
       headBand  = grouped_band
     ) %>%
     select(-token_lower, -original_band, -grouped_band, -is_numeric_token)
-  
+
   # 1.5. PoS Examples Integration ----
   if (!is.null(pos_examples_df) && "PoS" %in% names(result)) {
     result <- result %>%
       left_join(pos_examples_df, by = "PoS") %>%
       mutate(category = category %||% "Unclassified", examples = examples %||% "")
   }
-  
+
   return(result)
 })
 
@@ -99,15 +99,15 @@ get_frequency_info_cached <- memoise(function(tokens_hash, final_result,
 #'   or "all_bands" / NULL.
 fast_frequency_lookup <- function(result, freq_idx, freq_list_type = "token",
                                   selected_ranges = NULL) {
-  
+
   if (is.null(result) || nrow(result) == 0) return(result)
   if (is.null(freq_idx)) return(result)
-  
+
   tok <- tolower(as.character(result$token))
-  
+
   # Numeric tokens get auto-assigned to the 01k band / "Num" PoS.
   is_numeric_token <- grepl("^\\d+$", tok) | grepl("^\\d+\\.\\d+$", tok)
-  
+
   # O(1) hash lookups (named-vector indexing; misses return NA).
   tokenBand <- unname(freq_idx$hash_tokenband[tok])
   headBand  <- unname(freq_idx$hash_headband[tok])
@@ -115,7 +115,7 @@ fast_frequency_lookup <- function(result, freq_idx, freq_list_type = "token",
   headword  <- unname(freq_idx$hash_headword[tok])
   tokenRank <- unname(freq_idx$hash_tokenrank[tok])
   tokenFreq <- unname(freq_idx$hash_tokenfreq[tok])
-  
+
   # Number handling (parallels get_frequency_info_cached).
   tokenBand <- ifelse(is_numeric_token & (is.na(tokenBand) | tokenBand == ""), "01k", tokenBand)
   PoS <- ifelse(is_numeric_token & (is.na(PoS) | PoS == ""), "Num",
@@ -125,7 +125,7 @@ fast_frequency_lookup <- function(result, freq_idx, freq_list_type = "token",
   tokenRank <- ifelse(is.na(tokenRank), 999999L, tokenRank)
   tokenFreq <- ifelse(is_numeric_token & (is.na(tokenFreq) | tokenFreq == 0), 1000000L, as.integer(tokenFreq))
   tokenFreq <- ifelse(is.na(tokenFreq), 0L, tokenFreq)
-  
+
   # Lexical-range grouping (mirrors the case_when in the cached engine).
   original_band <- if (identical(freq_list_type, "token")) tokenBand else headBand
   grouped_band <- vapply(seq_along(original_band), function(i) {
@@ -139,14 +139,14 @@ fast_frequency_lookup <- function(result, freq_idx, freq_list_type = "token",
         "21k-50k" %in% selected_ranges) return("21k-50k")
     "other"
   }, character(1))
-  
+
   result$headword  <- headword
   result$tokenRank <- tokenRank
   result$tokenFreq <- tokenFreq
   result$PoS       <- PoS
   result$tokenBand <- grouped_band
   result$headBand  <- grouped_band
-  
+
   return(result)
 }
 
