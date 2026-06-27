@@ -251,8 +251,12 @@ dataInputServer <- function(id) {
       high_cardinality_cols <- names(column_info)[column_info > 20]
 
       tagList(
-        h5("Column Selection"),
-        p("Choose which columns contain your text and metadata:"),
+        div(
+          style = "margin-top: 10px; padding: 12px 15px; background-color: #e8f4f8; border-left: 4px solid #3498db; border-radius: 4px; margin-bottom: 12px;",
+          h5("① Choose your text column", style = "margin: 0 0 4px 0; color: #2c3e50;"),
+          p("Required before tokenizing: tell Octobox which column holds the text to analyse. Metadata columns are optional.",
+            style = "margin: 0; font-size: 13px; color: #555;")
+        ),
 
         selectInput(session$ns("text_column"),
                     "Choose Text Column:",

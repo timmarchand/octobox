@@ -14,15 +14,16 @@ dataInputUI <- function(id) {
     div(
       style = "background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 10px; border-radius: 4px; margin-bottom: 15px; font-size: 0.9em;",
       HTML("<strong>Inputting Tips:</strong><br/>
-            • Use <strong>Paste Text</strong> for quick demos and linguistic sampling<br/>
-            • Upload <strong>CSV files</strong> for texts with pre-existing metadata<br/>
-            • Large corpora should be uploaded as <strong>Multiple Files</strong>")
+            • Upload a <strong>CSV file</strong> (the default) for texts with metadata columns<br/>
+            • After uploading, <strong>choose your text column</strong> before tokenizing - this step is required<br/>
+            • Use <strong>Paste Text</strong> for quick demos, or <strong>Multiple Files</strong> for large corpora")
     ),
 
     radioButtons(ns("input_type"), "Select Input Method:",
-                 choices = c("Paste Text" = "paste",
-                             "Upload Single File" = "file",
+                 choices = c("Upload Single File (CSV)" = "file",
+                             "Paste Text" = "paste",
                              "Upload Multiple Files (Corpus)" = "corpus"),
+                 selected = "file",
                  inline = FALSE),
 
     hr(),
