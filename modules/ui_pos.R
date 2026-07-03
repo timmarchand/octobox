@@ -56,7 +56,7 @@ posUI <- function(id) {
         column(4,
                div(title = "Number of top PoS tags to display in plots",
                    numericInput(ns("pos_top_n"), "Show Top N PoS Tags:", 
-                                value = 8, min = 3, max = 15, step = 1)
+                                value = 8, min = 3, max = 40, step = 1)
                )
         ),
         column(4,
