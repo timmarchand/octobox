@@ -160,7 +160,9 @@ posUI <- function(id) {
         ),
         div(
           style = "padding: 15px; background-color: #f3e5f5; border-radius: 0 0 5px 5px; border-top: 1px solid #ce93d8; font-size: 13px; line-height: 1.4;",
-          HTML("<strong>PoS Categories in Your Data:</strong><br/>
+          HTML("<p style='margin-top:0;'>Octobox uses three tag schemes. The <strong>simplified categories</strong> below apply to <em>untagged</em> analysis (from the built-in frequency database). When you analyse <em>tagged</em> data you choose <strong>UPOS</strong> (Universal) or <strong>XPOS</strong> (Penn Treebank) tags - both are listed further down.</p>
+
+                 <strong>1. Simplified categories (untagged data):</strong><br/>
                  • <strong>NOUN:</strong> Person, place, thing (Noun, IrrN)<br/>
                  • <strong>VERB:</strong> Action or state (Verb)<br/>
                  • <strong>ADJ:</strong> Describes nouns (Adj)<br/>
@@ -176,7 +178,46 @@ posUI <- function(id) {
                  • <strong>INTERJ:</strong> Interjections (Intj)<br/>
                  • <strong>ABBR:</strong> Abbreviations (Abbr)<br/>
                  • <strong>TIME:</strong> Time expressions (Time)<br/>
-                 • <strong>OTHER:</strong> Irregular (Irr)")
+                 • <strong>OTHER:</strong> Irregular (Irr)<br/><br/>
+
+                 <strong>2. UPOS - Universal POS tags (tagged data):</strong><br/>
+                 • <strong>NOUN:</strong> Common noun (dog, idea)<br/>
+                 • <strong>PROPN:</strong> Proper noun (London, Alice)<br/>
+                 • <strong>VERB:</strong> Main verb (run, thought)<br/>
+                 • <strong>AUX:</strong> Auxiliary (is, have, will)<br/>
+                 • <strong>ADJ:</strong> Adjective (big, red)<br/>
+                 • <strong>ADV:</strong> Adverb (quickly, very)<br/>
+                 • <strong>PRON:</strong> Pronoun (she, it)<br/>
+                 • <strong>DET:</strong> Determiner (the, this)<br/>
+                 • <strong>ADP:</strong> Adposition/preposition (in, of)<br/>
+                 • <strong>CCONJ:</strong> Coordinating conjunction (and, but)<br/>
+                 • <strong>SCONJ:</strong> Subordinating conjunction (if, because)<br/>
+                 • <strong>NUM:</strong> Numeral (one, 2020)<br/>
+                 • <strong>PART:</strong> Particle (to, 's, not)<br/>
+                 • <strong>INTJ:</strong> Interjection (oh, wow)<br/>
+                 • <strong>PUNCT:</strong> Punctuation (. , ?)<br/>
+                 • <strong>SYM:</strong> Symbol (%, $)<br/>
+                 • <strong>X:</strong> Other/unclassified<br/><br/>
+
+                 <strong>3. XPOS - Penn Treebank tags (tagged data):</strong><br/>
+                 • <strong>NN / NNS:</strong> Noun, singular / plural<br/>
+                 • <strong>NNP / NNPS:</strong> Proper noun, singular / plural<br/>
+                 • <strong>VB:</strong> Verb, base form<br/>
+                 • <strong>VBD / VBN:</strong> Verb, past tense / past participle<br/>
+                 • <strong>VBG:</strong> Verb, gerund/present participle (-ing)<br/>
+                 • <strong>VBP / VBZ:</strong> Verb, non-3rd / 3rd person present<br/>
+                 • <strong>JJ / JJR / JJS:</strong> Adjective / comparative / superlative<br/>
+                 • <strong>RB / RBR / RBS:</strong> Adverb / comparative / superlative<br/>
+                 • <strong>PRP / PRP$:</strong> Personal / possessive pronoun<br/>
+                 • <strong>DT:</strong> Determiner (the, a)<br/>
+                 • <strong>IN:</strong> Preposition/subordinating conjunction<br/>
+                 • <strong>CC:</strong> Coordinating conjunction (and, or)<br/>
+                 • <strong>CD:</strong> Cardinal number<br/>
+                 • <strong>MD:</strong> Modal (can, will)<br/>
+                 • <strong>TO:</strong> 'to'<br/>
+                 • <strong>UH:</strong> Interjection<br/>
+                 • <strong>WDT / WP / WRB:</strong> Wh-determiner / pronoun / adverb<br/>
+                 <span style='color:#7b1fa2;'>Tip: XPOS is finer-grained (tense, number, degree); UPOS is coarser and cross-linguistic.</span>")
         )
       )
     )
