@@ -30,7 +30,8 @@ kwicUI <- function(id) {
                        choices = list(
                          "XPOS tags (word_NN)" = "xpos",
                          "UPOS tags (word_NOUN)" = "upos",
-                         "POS only (NN)" = "pos_only"
+                         "XPOS only (NN)" = "xpos_only",
+                         "UPOS only (NOUN)" = "upos_only"
                        ),
                        selected = "xpos"),
           

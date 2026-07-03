@@ -7,12 +7,16 @@ convert_tagged_to_tokens <- function(tagged_df, tag_column = "xpos") {
   # 1. Logic Branching: Text Construction -------------------------------------
   # This section builds the raw text strings before tokenization
   
-  if (tag_column == "pos_only") {
+  if (tag_column %in% c("pos_only", "xpos_only", "upos_only")) {
     # Method: POS Tags Only ----
+    # xpos_only -> Penn-style tags (NN); upos_only -> Universal tags (NOUN).
+    # "pos_only" kept for backward compatibility, treated as xpos_only.
+    pos_col <- if (tag_column == "upos_only") "upos" else "xpos"
+    
     tagged_text <- tagged_df %>%
       dplyr::group_by(doc_id) %>%
       dplyr::summarize(
-        text = paste(xpos, collapse = " "),
+        text = paste(.data[[pos_col]], collapse = " "),
         meta = dplyr::first(meta),
         .groups = "drop"
       )

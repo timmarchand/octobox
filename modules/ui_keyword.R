@@ -31,7 +31,8 @@ keywordUI <- function(id) {
                        choices = list(
                          "Words with XPOS tags (word_NN, word_VB)" = "xpos",
                          "Words with UPOS tags (word_NOUN, word_VERB)" = "upos",
-                         "POS tags only (NN, VB, JJ)" = "pos_only",
+                         "POS tags only - XPOS (NN, VB, JJ)" = "xpos_only",
+                         "POS tags only - UPOS (NOUN, VERB, ADJ)" = "upos_only",
                          "Lemmas with tags (lemma_NN, lemma_VB)" = "lemma"
                        ),
                        selected = "xpos"),
