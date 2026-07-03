@@ -91,18 +91,22 @@ dispersionUI <- function(id) {
         ),
         column(6,
                radioButtons(ns("dispersion_level"),
-                            "Calculate across:",
+                            "Divide the corpus into:",
                             choices = list("Individual texts" = "text", "Meta groups" = "meta"),
-                            selected = "text")
+                            selected = "text"),
+               helpText(style = "margin-top: -6px; font-size: 12px;",
+                        "Sets the \"parts\" dispersion is measured across - this changes the DP/Range values.")
         )
       ),
       
-      # Faceting Option ----
+      # Faceting Option (display only) ----
       conditionalPanel(
         condition = paste0("input['", ns("dispersion_level"), "'] == 'text'"),
         checkboxInput(ns("facet_by_meta"),
-                      "Show separate plots by meta group",
-                      value = FALSE)
+                      "Group texts visually by meta (display only)",
+                      value = FALSE),
+        helpText(style = "margin-top: -10px; font-size: 12px;",
+                 "Draws one sub-plot per meta group. Does not change the numbers.")
       )
     ),
     
@@ -162,6 +166,8 @@ dispersionUI <- function(id) {
                            "Individual text" = "text"
                          ),
                          selected = "corpus"),
+            helpText(style = "margin-top: -6px; font-size: 12px;",
+                     "Display grouping for the barcode plot only - independent of the DP calculation above."),
             
             conditionalPanel(
               condition = paste0("input['", ns("barcode_granularity"), "'] == 'corpus'"),
