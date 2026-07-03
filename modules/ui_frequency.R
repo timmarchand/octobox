@@ -140,6 +140,8 @@ frequencyUI <- function(id) {
           column(6, selectInput(ns("stopword_language"), "Language:", choices = c("en", "es", "fr", "de", "it", "ja", "zh"), selected = "en")),
           column(6, br(), checkboxInput(ns("include_contractions"), "Include Contractions", TRUE))
         ),
+        radioButtons(ns("custom_stopword_mode"), "Custom mode:",
+                     choices = c("Add" = "add", "Replace" = "replace"), inline = TRUE),
         textAreaInput(ns("custom_stopwords"), "Custom Words (one per line):", rows = 3),
         downloadButton(ns("download_stopwords"), "📥 Download List", class = "btn-outline-secondary btn-sm")
       )

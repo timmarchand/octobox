@@ -143,7 +143,10 @@ frequencyServer <- function(id, token_data, meta_filter_global, values, tagged_d
     output$download_stopwords <- downloadHandler(
       filename = function() { paste0("stopwords_", Sys.Date(), ".txt") },
       content = function(file) {
-        sw <- create_stopword_list(input$stopword_language, TRUE, input$custom_stopwords, "add")
+        sw <- create_stopword_list(input$stopword_language,
+                                   input$include_contractions %||% TRUE,
+                                   input$custom_stopwords,
+                                   input$custom_stopword_mode %||% "add")
         writeLines(sw, file)
       }
     )

@@ -35,7 +35,7 @@ keywordServer <- function(id, token_data, selected_text_and_meta, meta_filter, t
     #   quanteda::docvars(toks) <- quanteda::docvars(token_data())
     #   return(toks)
     # }
-
+    
     # 3. Active tokens - switch logic ----
     active_tokens <- reactive({
       # Use %||% to handle cases where UI hasn't initialized yet
@@ -51,22 +51,22 @@ keywordServer <- function(id, token_data, selected_text_and_meta, meta_filter, t
         return(token_data())
       }
     })
-
+    
     # 4. Target/Reference Dynamic Selection ----
     # FIXED: Using 'meta_filter' (the argument) instead of 'meta_filter_global'
     observe({
       tryCatch({
         data <- selected_text_and_meta()
         current_filter <- meta_filter() # Use the reactive argument
-
+        
         if (is.null(data) || is.null(data$meta) || is.null(current_filter)) {
           updateCheckboxGroupInput(session, "keyword_target", choices = NULL)
           return()
         }
-
+        
         available_choices <- intersect(unique(data$meta), current_filter)
         available_choices <- available_choices[!is.na(available_choices) & available_choices != ""]
-
+        
         if (length(available_choices) > 0) {
           updateCheckboxGroupInput(session, "keyword_target",
                                    choices = sort(available_choices),
@@ -74,10 +74,10 @@ keywordServer <- function(id, token_data, selected_text_and_meta, meta_filter, t
         }
       }, error = function(e) cat("Error in Selection Update:", e$message, "\n"))
     })
-
-  # 5. TARGET/REFERENCE SELECTION HANDLERS ----
+    
+    # 5. TARGET/REFERENCE SELECTION HANDLERS ----
     # =============================================================================
-
+    
     # 5.1. Target: Select All
     observeEvent(input$select_all_targets, {
       data <- selected_text_and_meta()
@@ -90,12 +90,12 @@ keywordServer <- function(id, token_data, selected_text_and_meta, meta_filter, t
       
       updateCheckboxGroupInput(session, "keyword_target", selected = available)
     })
-
+    
     # 5.2. Target: Clear
     observeEvent(input$clear_targets, {
       updateCheckboxGroupInput(session, "keyword_target", selected = character(0))
     })
-
+    
     # 5.3. Dynamic Update: Choices for Target
     observe({
       data <- selected_text_and_meta()
@@ -104,7 +104,7 @@ keywordServer <- function(id, token_data, selected_text_and_meta, meta_filter, t
       # CRITICAL: Stop the update if data is mid-refresh or empty
       req(data$meta, current_f)
       if(all(data$meta == "pasted_text") && length(current_f) == 0) return()
-
+      
       available <- sort(intersect(unique(data$meta), current_f))
       available <- available[!is.na(available) & available != ""]
       
@@ -115,22 +115,22 @@ keywordServer <- function(id, token_data, selected_text_and_meta, meta_filter, t
                                choices = current_choices,
                                selected = input$keyword_target)
     })
-
+    
     # 5.4. Sync Reference choices when Target changes
     observe({
       data <- selected_text_and_meta()
       current_f <- meta_filter()
       req(data$meta, current_f, input$keyword_target)
-
+      
       available <- intersect(unique(data$meta), current_f)
       # Reference is Available MINUS Target
       ref_choices <- sort(setdiff(available, input$keyword_target))
-
+      
       updateCheckboxGroupInput(session, "keyword_reference",
                                choices = ref_choices,
                                selected = input$keyword_reference)
     })
-
+    
     # 5.5. Reference: Select All
     observeEvent(input$select_all_reference, {
       data <- selected_text_and_meta()
@@ -143,13 +143,13 @@ keywordServer <- function(id, token_data, selected_text_and_meta, meta_filter, t
       
       updateCheckboxGroupInput(session, "keyword_reference", selected = to_select)
     })
-
+    
     # 5.6. Reference: Deselect All
     observeEvent(input$deselect_all_reference, {
       updateCheckboxGroupInput(session, "keyword_reference", selected = character(0))
     })
-
-
+    
+    
     # 6. FIXED KEYWORD ANALYSIS LOGIC ----
     # =============================================================================
     keyword_results <- eventReactive(input$run_keyword_analysis, {
@@ -158,34 +158,34 @@ keywordServer <- function(id, token_data, selected_text_and_meta, meta_filter, t
       req(input$keyword_reference)
       req(length(input$keyword_target) > 0)
       req(length(input$keyword_reference) > 0)
-
+      
       withProgress(message = 'Running keyword analysis...', value = 0, {
-
+        
         tryCatch({
           showNotification("Starting keyword analysis...", type = "message", duration = 3)
-
+          
           toks <- active_tokens()
           n <- input$keyword_ngram_n
           top_n <- input$keyword_top_n
-
+          
           incProgress(0.2, detail = "Processing tokens...")
-
+          
           # Applying stopword filtering BEFORE n-gram generation
           tokens_processed <- toks
-
+          
           if (input$use_stopwords %||% FALSE) {
             incProgress(0.3, detail = "Applying stop words filter...")
-
+            
             stopwords_list <- create_stopword_list(
               input$stopword_language %||% "en",
               input$include_contractions %||% TRUE,
               input$custom_stopwords %||% "",
               input$custom_stopword_mode %||% "add"
             )
-
+            
             cat("Using", length(stopwords_list), "stop words for keyword analysis\n")
             tokens_processed <- quanteda::tokens_remove(tokens_processed, stopwords_list, case_insensitive = TRUE)
-
+            
             total_tokens_after <- sum(quanteda::ntoken(tokens_processed))
             if (total_tokens_after == 0) {
               showNotification("Warning: No tokens remain after stopword filtering. Try using fewer stopwords.", type = "warning")
@@ -193,61 +193,61 @@ keywordServer <- function(id, token_data, selected_text_and_meta, meta_filter, t
             }
             cat("Tokens after stopword removal:", total_tokens_after, "\n")
           }
-
+          
           incProgress(0.4, detail = "Generating n-grams...")
           if (n > 1) {
             toks_ngrams <- quanteda::tokens_ngrams(tokens_processed, n = n)
           } else {
             toks_ngrams <- tokens_processed
           }
-
+          
           incProgress(0.5, detail = "Creating document-feature matrix...")
           dfm_ngrams <- quanteda::dfm(toks_ngrams)
-
+          
           if (quanteda::nfeat(dfm_ngrams) == 0) {
             showNotification("No features found in document-feature matrix", type = "error")
             return(NULL)
           }
-
+          
           incProgress(0.6, detail = "Processing groups...")
           meta_values <- quanteda::docvars(dfm_ngrams, "meta")
-
+          
           if (is.null(meta_values) || length(meta_values) == 0) {
             showNotification("Error: No metadata found for documents", type = "error")
             return(NULL)
           }
-
+          
           doc_groups <- ifelse(meta_values %in% input$keyword_target, "target", "reference")
           all_selected_groups <- c(input$keyword_target, input$keyword_reference)
           keep_docs <- meta_values %in% all_selected_groups
-
+          
           if (sum(keep_docs) == 0) {
             showNotification("Error: No documents match the selected groups", type = "error")
             return(NULL)
           }
-
+          
           dfm_filtered <- dfm_ngrams[keep_docs, ]
           doc_groups_filtered <- doc_groups[keep_docs]
           meta_filtered <- meta_values[keep_docs]
-
+          
           incProgress(0.7, detail = "Calculating frequencies...")
           dfm_grouped <- quanteda::dfm_group(dfm_filtered, groups = doc_groups_filtered)
-
+          
           group_names <- rownames(dfm_grouped)
           if (!"target" %in% group_names || !"reference" %in% group_names) {
             showNotification("Error: Missing target or reference group after filtering.", type = "error")
             return(NULL)
           }
-
+          
           freq_df <- as.data.frame(as.matrix(dfm_grouped))
           freq_df$group <- rownames(freq_df)
-
+          
           freq_long <- freq_df %>%
             tidyr::pivot_longer(cols = -group, names_to = "feature", values_to = "count") %>%
             tidyr::pivot_wider(names_from = group, values_from = count, values_fill = 0)
-
+          
           incProgress(0.8, detail = "Calculating log-odds...")
-
+          
           if ("target" %in% names(freq_long) && "reference" %in% names(freq_long)) {
             # Log-odds calculation with smoothing
             logodds_df <- freq_long %>%
@@ -266,11 +266,11 @@ keywordServer <- function(id, token_data, selected_text_and_meta, meta_filter, t
             showNotification("Error: Unable to calculate log-odds", type = "error")
             return(NULL)
           }
-
+          
           dfm_by_meta <- quanteda::dfm_group(dfm_filtered, groups = meta_filtered)
           meta_freq <- as.data.frame(as.matrix(dfm_by_meta))
           meta_freq$meta <- rownames(meta_freq)
-
+          
           meta_freq_long <- meta_freq %>%
             tidyr::pivot_longer(cols = -meta, names_to = "feature", values_to = "count") %>%
             group_by(meta) %>%
@@ -279,10 +279,10 @@ keywordServer <- function(id, token_data, selected_text_and_meta, meta_filter, t
               relative_freq = count / total * 1000
             ) %>%
             ungroup()
-
+          
           incProgress(1, detail = "Complete!")
           showNotification("Keyword analysis completed!", type = "message")
-
+          
           final_results <- list(
             logodds = logodds_df,
             meta_freq = meta_freq_long,
@@ -290,11 +290,13 @@ keywordServer <- function(id, token_data, selected_text_and_meta, meta_filter, t
             reference = input$keyword_reference,
             n = n,
             stopwords_used = input$use_stopwords,
-            stopword_language = if(input$use_stopwords) input$stopword_language else NULL
+            stopword_language = if(input$use_stopwords) input$stopword_language else NULL,
+            stopword_mode = if(input$use_stopwords) (input$custom_stopword_mode %||% "add") else NULL,
+            stopword_has_custom = if(input$use_stopwords) nzchar(trimws(input$custom_stopwords %||% "")) else FALSE
           )
-
+          
           return(final_results)
-
+          
         }, error = function(e) {
           showNotification(paste("Keyword analysis error:", e$message), type = "error")
           cat("Full error details:", paste(traceback(), collapse = "\n"), "\n")
@@ -302,15 +304,15 @@ keywordServer <- function(id, token_data, selected_text_and_meta, meta_filter, t
         })
       })
     }, ignoreNULL = TRUE, ignoreInit = TRUE)
-
+    
     # 7. OUTPUT HANDLERS ----
     # =============================================================================
-
+    
     # 7.1. Summary Statistics
     output$keyword_summary <- renderTable({
       req(keyword_results())
       results <- keyword_results()
-
+      
       summary_df <- data.frame(
         Metric = c("Target Groups",
                    "Reference Groups",
@@ -323,7 +325,16 @@ keywordServer <- function(id, token_data, selected_text_and_meta, meta_filter, t
                   paste(results$reference, collapse = ", "),
                   results$n,
                   ifelse(results$stopwords_used,
-                         paste("Yes (", results$stopword_language, ")", sep = ""),
+                         {
+                           mode <- results$stopword_mode %||% "add"
+                           if (identical(mode, "replace")) {
+                             "Yes (custom list only)"
+                           } else if (isTRUE(results$stopword_has_custom)) {
+                             paste0("Yes (", results$stopword_language, " + custom)")
+                           } else {
+                             paste0("Yes (", results$stopword_language, ")")
+                           }
+                         },
                          "No"),
                   nrow(results$logodds),
                   sum(results$logodds$log_odds > 0),
@@ -331,12 +342,12 @@ keywordServer <- function(id, token_data, selected_text_and_meta, meta_filter, t
       )
       summary_df
     })
-
+    
     # 7.2. Comparison Plot
     output$keyword_comparison_plot <- renderPlot({
       req(keyword_results())
       results <- keyword_results()
-
+      
       if (is.null(results$logodds) || nrow(results$logodds) == 0) {
         return(ggplot() +
                  annotate("text", x = 1, y = 1,
@@ -344,7 +355,7 @@ keywordServer <- function(id, token_data, selected_text_and_meta, meta_filter, t
                           size = 6) +
                  theme_void())
       }
-
+      
       tryCatch({
         create_enhanced_keyword_plot(
           results,
@@ -365,7 +376,21 @@ keywordServer <- function(id, token_data, selected_text_and_meta, meta_filter, t
         })
       })
     })
-
+    
+    # 7.2b. Stop-word List Download Handler
+    output$download_stopwords <- downloadHandler(
+      filename = function() paste0("stopwords_", Sys.Date(), ".txt"),
+      content = function(file) {
+        sw <- create_stopword_list(
+          input$stopword_language %||% "en",
+          input$include_contractions %||% TRUE,
+          input$custom_stopwords %||% "",
+          input$custom_stopword_mode %||% "add"
+        )
+        writeLines(sw, file)
+      }
+    )
+    
     # 7.3. Plot Download Handler
     output$download_keyword_plot <- downloadHandler(
       filename = function() {
@@ -374,13 +399,13 @@ keywordServer <- function(id, token_data, selected_text_and_meta, meta_filter, t
       content = function(file) {
         req(keyword_results())
         results <- keyword_results()
-
+        
         if (is.null(results$logodds) || nrow(results$logodds) == 0) {
           p <- ggplot() + annotate("text", x = 1, y = 1, label = "No results", size = 6) + theme_void()
           ggsave(file, plot = p, width = 10, height = 6, dpi = 300, bg = "white")
           return()
         }
-
+        
         tryCatch({
           p <- create_enhanced_keyword_plot(results, input$keyword_top_n, input$plot_type, input$show_counts)
           ggsave(file, plot = p, width = 12, height = 8, dpi = 300, bg = "white")
@@ -390,12 +415,12 @@ keywordServer <- function(id, token_data, selected_text_and_meta, meta_filter, t
         })
       }
     )
-
+    
     # 7.4. Detailed Scores Table
     output$keyword_scores_table <- DT::renderDT({
       req(keyword_results())
       results <- keyword_results()
-
+      
       detailed_df <- results$logodds %>%
         left_join(
           results$meta_freq %>%
@@ -421,7 +446,7 @@ keywordServer <- function(id, token_data, selected_text_and_meta, meta_filter, t
         select(feature, log_odds, group, target_count, target_rel_freq,
                reference_count, reference_rel_freq) %>%
         arrange(desc(abs(log_odds)))
-
+      
       DT::datatable(detailed_df,
                     options = list(pageLength = 25),
                     colnames = c("Feature", "Log-Odds", "Favors",
@@ -429,7 +454,7 @@ keywordServer <- function(id, token_data, selected_text_and_meta, meta_filter, t
                                  paste(paste(results$target, collapse = "+"), "Freq/1000"),
                                  "Ref Count", "Ref Freq/1000"))
     })
-
+    
     # 7.5. CSV Download Handler
     output$download_keyword_csv <- downloadHandler(
       filename = function() {
@@ -438,7 +463,7 @@ keywordServer <- function(id, token_data, selected_text_and_meta, meta_filter, t
       content = function(file) {
         req(keyword_results())
         results <- keyword_results()
-
+        
         detailed_df <- results$logodds %>%
           left_join(
             results$meta_freq %>%
@@ -471,10 +496,10 @@ keywordServer <- function(id, token_data, selected_text_and_meta, meta_filter, t
                  target_count, target_rel_freq, reference_count, reference_rel_freq,
                  ngram_size, stopwords_removed, stopword_language, analysis_type) %>%
           arrange(desc(abs(log_odds)))
-
+        
         readr::write_csv(detailed_df, file)
       }
     )
-
+    
   }) # Close moduleServer
 } # Close keywordServer function
