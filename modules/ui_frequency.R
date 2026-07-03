@@ -183,8 +183,16 @@ frequencyUI <- function(id) {
       conditionalPanel(
         condition = paste0("output['", ns("charts_available"), "']"),
         tabsetPanel(
-          tabPanel("Token Frequency", plotOutput(ns("test_plot"), height = "500px")),
-          tabPanel("Frequency Bands", plotOutput(ns("freq_band_plot"), height = "500px"))
+          tabPanel("Token Frequency",
+                   div(style = "text-align: right; margin: 8px 0;",
+                       downloadButton(ns("download_token_chart"), "📥 Download PNG",
+                                      class = "btn-outline-secondary btn-sm")),
+                   plotOutput(ns("test_plot"), height = "500px")),
+          tabPanel("Frequency Bands",
+                   div(style = "text-align: right; margin: 8px 0;",
+                       downloadButton(ns("download_band_chart"), "📥 Download PNG",
+                                      class = "btn-outline-secondary btn-sm")),
+                   plotOutput(ns("freq_band_plot"), height = "500px"))
         )
       )
     )
