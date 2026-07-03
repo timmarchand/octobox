@@ -177,7 +177,10 @@ ui <- fluidPage(
       div(
         style = "text-align: center; margin-bottom: 20px; padding: 15px; background: linear-gradient(135deg, #1976d2 0%, #42a5f5 100%); border-radius: 8px; color: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1);",
         h3("OCTOBOX", style = "margin: 0; font-weight: 700; font-size: 24px; letter-spacing: 2px;"),
-        h5("Online Corpus Toolbox", style = "margin: 5px 0 0 0; font-weight: 400; font-size: 14px; letter-spacing: 0.5px;")
+        h5("Online Corpus Toolbox", style = "margin: 5px 0 0 0; font-weight: 400; font-size: 14px; letter-spacing: 0.5px;"),
+        actionButton("start_over", "🔄 Start Over",
+                     class = "btn-sm",
+                     style = "margin-top: 12px; background-color: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.5);")
       ),
       
       # Features Indicator
@@ -471,6 +474,27 @@ server <- function(input, output, session) {
   )
   
   taggingServer("tagging", tokenization_return$token_data, tokenization_return$meta_filter, shared_values = shared_values) 
+  
+  # Start Over ----
+  # Full reset: confirm, then reload the session, which clears the loaded
+  # corpus, tokenization, tagged data, all analysis results, and caches.
+  observeEvent(input$start_over, {
+    showModal(modalDialog(
+      title = "Start over?",
+      "This clears the loaded corpus and all analysis results, returning the app to a fresh state. This cannot be undone.",
+      footer = tagList(
+        modalButton("Cancel"),
+        actionButton("start_over_confirm", "Clear everything",
+                     class = "btn-danger")
+      ),
+      easyClose = TRUE
+    ))
+  })
+  
+  observeEvent(input$start_over_confirm, {
+    removeModal()
+    session$reload()
+  })
   
   # Housekeeping & Cleanup ----
   observe({
