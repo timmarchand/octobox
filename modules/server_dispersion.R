@@ -125,9 +125,15 @@ dispersionServer <- function(id, token_data, meta_filter, tagged_data = NULL) {
         is_tagged_search <- input$use_tagged_tokens %||% FALSE
         
         if (is_tagged_search) {
-          # Tagged token search logic
-          if (startsWith(search_term, "_")) {
-            # POS-only search: _noun matches anything_NOUN
+          tag_col <- input$tag_column %||% "xpos"
+          
+          if (tag_col %in% c("xpos_only", "upos_only", "pos_only")) {
+            # POS-only mode: each token is a bare tag (e.g. "nn", "noun").
+            # The search term IS the whole token - match it directly.
+            search_pattern <- search_term
+            use_regex <- FALSE
+          } else if (startsWith(search_term, "_")) {
+            # POS-only search within word_TAG tokens: _noun matches anything_NOUN
             search_pattern <- paste0("\\w+", search_term)  # Keep lowercase from search
             use_regex <- TRUE
           } else if (grepl("_", search_term)) {
