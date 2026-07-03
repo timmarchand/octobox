@@ -38,10 +38,14 @@ kwicUI <- function(id) {
           div(
             style = "font-size: 12px; color: #6c757d; margin-top: 10px; padding: 10px; background-color: #f8f9fa; border-radius: 3px;",
             HTML("<strong>💡 KWIC search tips for tagged tokens:</strong><br/>
+                 <em>With XPOS/UPOS tags (word_NN, word_NOUN):</em><br/>
                  • <strong>Word in context:</strong> <code>bank</code> finds bank_NN, bank_VB, etc.<br/>
                  • <strong>Specific form:</strong> <code>bank_NN</code> finds only noun usage<br/>
                  • <strong>POS in context:</strong> <code>_VBD</code> shows all past tense verbs<br/>
                  • <strong>With regex:</strong> <code>_VB.*</code> shows all verb forms in context<br/>
+                 <em>With XPOS only / UPOS only (bare tags):</em><br/>
+                 • <strong>Tag in context:</strong> <code>NN</code> (XPOS) or <code>NOUN</code> (UPOS) shows every token of that tag<br/>
+                 • <strong>With regex:</strong> tick 'Use Regex', then <code>VB.*</code> matches all verb tags<br/>
                  • <strong>Useful for:</strong> Disambiguating homographs, studying grammatical patterns")
           )
         )

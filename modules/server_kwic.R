@@ -90,7 +90,15 @@ kwicServer <- function(id, token_data, meta_filter, tagged_data = NULL) {
         cat("Is tagged search:", is_tagged_search, "\n")
         
         if (is_tagged_search) {
-          if (startsWith(index, "_")) {
+          tag_col <- input$tag_column %||% "xpos"
+          
+          if (tag_col %in% c("xpos_only", "upos_only", "pos_only")) {
+            # POS-only mode: tokens are bare tags (e.g. "NN", "NOUN").
+            # The search term IS the whole token - match it directly, but
+            # still allow regex if the user ticked it (e.g. "N.*").
+            search_pattern <- index
+            use_regex <- input$use_regex %||% FALSE
+          } else if (startsWith(index, "_")) {
             search_pattern <- paste0("\\w+", index)
             use_regex <- TRUE
           } else if (grepl("_", index)) {
