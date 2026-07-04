@@ -37,7 +37,8 @@ tokenizationServer <- function(id, selected_text_and_meta, meta_filter_global, v
         text <- selected_text_and_meta()$text
         meta <- selected_text_and_meta()$meta
         doc_id <- selected_text_and_meta()$doc_id
-        if (is.null(doc_id) || length(doc_id) != length(text)) {
+        used_real_ids <- !(is.null(doc_id) || length(doc_id) != length(text))
+        if (!used_real_ids) {
           doc_id <- as.character(seq_along(text))
         }
         filter_meta <- meta_filter_global()
@@ -106,6 +107,16 @@ tokenizationServer <- function(id, selected_text_and_meta, meta_filter_global, v
         token_data(toks)
         values$token_data <- toks
         tokenization_complete(TRUE)
+        
+        showNotification(
+          if (used_real_ids) {
+            paste0("Tokenized ", quanteda::ndoc(toks), " texts using your ID column for names.")
+          } else {
+            paste0("Tokenized ", quanteda::ndoc(toks), " texts, numbered by position (no ID column selected).")
+          },
+          type = if (used_real_ids) "message" else "warning",
+          duration = 5
+        )
         
         # Update Stats ----
         elapsed_time <- as.numeric(Sys.time() - overall_start_time, units = "secs")
