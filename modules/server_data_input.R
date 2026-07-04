@@ -263,6 +263,18 @@ dataInputServer <- function(id) {
                     choices = columns,
                     selected = columns[1]),
 
+        # Optional document-ID column. Auto-detect a likely id column so users
+        # with doc_id / text_id / filename get named texts without extra steps;
+        # otherwise texts are numbered by position.
+        selectInput(session$ns("id_column"),
+                    "Choose ID Column (optional):",
+                    choices = c("(none - number by position)" = "__none__", columns),
+                    selected = {
+                      likely <- c("doc_id", "text_id", "id", "docid", "filename", "file", "name")
+                      hit <- columns[tolower(columns) %in% likely]
+                      if (length(hit) > 0) hit[1] else "__none__"
+                    }),
+
         div(
           conditionalPanel(
             condition = paste0("input['", session$ns("text_column"), "'] != null"),
@@ -346,11 +358,12 @@ dataInputServer <- function(id) {
           rep("unknown", length(text_data))
         }
 
-        # Preserve a real document id if the CSV has a "doc_id" column, so
-        # downstream views (e.g. the dispersion barcode) label texts properly
+        # Preserve a real document id from the user-selected ID column (if any),
+        # so downstream views (e.g. the dispersion barcode) label texts properly
         # instead of by position (1, 2, 3...).
-        doc_id_data <- if ("doc_id" %in% names(df)) {
-          as.character(df[["doc_id"]])
+        id_col <- input$id_column %||% "__none__"
+        doc_id_data <- if (!identical(id_col, "__none__") && id_col %in% names(df)) {
+          as.character(df[[id_col]])
         } else {
           NULL
         }
