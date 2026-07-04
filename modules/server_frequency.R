@@ -136,9 +136,22 @@ frequencyServer <- function(id, token_data, meta_filter_global, values, tagged_d
     # 6. CHARTING & EXPORT ----------------------------------------------------
     output$ngram_result <- DT::renderDT({
       req(ngram_result())
-      # Simplified view for UI performance
-      DT::datatable(head(ngram_result(), 5000), options = list(scrollX = TRUE, pageLength = 25))
-    })
+      # Server-side processing: DT paginates the FULL table rather than us
+      # truncating to the first N rows. Truncating with head() could drop an
+      # entire meta group when the table is long (e.g. bigrams), which broke
+      # search and sort for the cut-off group. server = TRUE keeps everything
+      # searchable/sortable without rendering all rows at once.
+      DT::datatable(
+        ngram_result(),
+        rownames = FALSE,
+        filter = "top",
+        options = list(
+          scrollX = TRUE,
+          pageLength = 25,
+          lengthMenu = list(c(10, 25, 50, 100, -1), c("10", "25", "50", "100", "All"))
+        )
+      )
+    }, server = TRUE)
     
     output$download_stopwords <- downloadHandler(
       filename = function() { paste0("stopwords_", Sys.Date(), ".txt") },
