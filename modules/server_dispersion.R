@@ -333,6 +333,11 @@ dispersionServer <- function(id, token_data, meta_filter, tagged_data = NULL) {
       results <- dispersion_results()$results
       stats <- dispersion_results()$stats
       
+      # Which y-value to plot: normalised (matches DP) or raw counts.
+      use_norm <- identical(input$bar_yaxis %||% "norm", "norm")
+      results$plot_y <- if (use_norm) results$rel_freq_per_1000 else results$frequency
+      y_label <- if (use_norm) "Frequency per 1,000 words" else "Raw frequency"
+      
       # Check if we should facet by meta
       facet_by_meta <- input$facet_by_meta %||% FALSE
       
@@ -369,16 +374,19 @@ dispersionServer <- function(id, token_data, meta_filter, tagged_data = NULL) {
       
       # Create bar plot
       if (stats$level == "text" && facet_by_meta && "meta_group" %in% names(results)) {
-        # Faceted by meta group
-        p <- ggplot2::ggplot(results, ggplot2::aes(x = reorder(group, frequency), y = frequency)) +
+        # Faceted by meta group.
+        # Plot NORMALISED frequency (per 1,000 words), not raw counts: DP is a
+        # proportional measure, and parts differ in length, so raw counts would
+        # misrepresent the dispersion the DP value describes.
+        p <- ggplot2::ggplot(results, ggplot2::aes(x = reorder(group, plot_y), y = plot_y)) +
           ggplot2::geom_col(fill = "#2E86AB", alpha = 0.8) +
           ggplot2::coord_flip() +
-          ggplot2::facet_wrap(~meta_group, scales = "free_y") +
+          ggplot2::facet_wrap(~meta_group, scales = "free_x") +
           ggplot2::labs(
             title = paste0("Distribution of \"", stats$search_term, "\" by Meta Group"),
             subtitle = paste0("Overall DP = ", stats$dp, " | Range = ", stats$range, "%"),
             x = "Text",
-            y = "Frequency"
+            y = y_label
           ) +
           ggplot2::theme_minimal() +
           ggplot2::theme(
@@ -390,18 +398,19 @@ dispersionServer <- function(id, token_data, meta_filter, tagged_data = NULL) {
           )
         
       } else {
-        # Single plot (original)
-        results$group <- factor(results$group, levels = results$group[order(results$frequency)])
+        # Single plot. Plot NORMALISED frequency (per 1,000 words) so bar
+        # heights correspond to the DP measure: even bars = even dispersion.
+        results$group <- factor(results$group, levels = results$group[order(results$plot_y)])
         
-        p <- ggplot2::ggplot(results, ggplot2::aes(x = group, y = frequency)) +
+        p <- ggplot2::ggplot(results, ggplot2::aes(x = group, y = plot_y)) +
           ggplot2::geom_col(fill = "#2E86AB", alpha = 0.8) +
           ggplot2::coord_flip() +
           ggplot2::labs(
             title = paste0("Distribution of \"", stats$search_term, "\" across ",
                            ifelse(stats$level == "meta", "Meta Groups", "Texts")),
-            subtitle = paste0("DP = ", stats$dp, " | Range = ", stats$range, "%"),
+            subtitle = paste0("DP = ", stats$dp, " | Range = ", stats$range, "% | bars show ", tolower(y_label)),
             x = ifelse(stats$level == "meta", "Meta Group", "Text"),
-            y = "Frequency"
+            y = y_label
           ) +
           ggplot2::theme_minimal() +
           ggplot2::theme(
@@ -505,6 +514,12 @@ dispersionServer <- function(id, token_data, meta_filter, tagged_data = NULL) {
       # Total occurrences count
       total_occurrences <- nrow(positions_df)
       
+      # Normalised position: where each occurrence falls as a fraction (0-1) of
+      # ITS OWN text's length. This is what makes the barcode honest - a raw
+      # token index can't be compared across texts of different lengths, and the
+      # 0-100% axis labels are only correct against this normalised position.
+      positions_df$rel_position <- positions_df$position / positions_df$doc_length
+      
       # Ensure ALL meta groups are represented
       positions_df$meta <- factor(positions_df$meta, levels = all_meta_groups)
       
@@ -523,6 +538,7 @@ dispersionServer <- function(id, token_data, meta_filter, tagged_data = NULL) {
           empty_texts <- data.frame(
             position = 1,
             doc_length = 1,
+            rel_position = NA_real_,
             text = texts_without_hits,
             text_id = which(all_texts %in% texts_without_hits),
             meta = meta_all[which(all_texts %in% texts_without_hits)],
@@ -531,7 +547,7 @@ dispersionServer <- function(id, token_data, meta_filter, tagged_data = NULL) {
           )
           
           positions_df$is_placeholder <- FALSE
-          positions_df <- rbind(positions_df, empty_texts)
+          positions_df <- dplyr::bind_rows(positions_df, empty_texts)
         } else {
           positions_df$is_placeholder <- FALSE
         }
@@ -540,7 +556,7 @@ dispersionServer <- function(id, token_data, meta_filter, tagged_data = NULL) {
         positions_df$text <- factor(positions_df$text, levels = all_texts)
         
         # Create barcode plot faceted by individual text
-        p <- ggplot2::ggplot(positions_df, ggplot2::aes(x = position, y = 1)) +
+        p <- ggplot2::ggplot(positions_df, ggplot2::aes(x = rel_position, y = 1)) +
           ggplot2::scale_y_continuous(limits = c(0.5, 1.5)) +
           ggplot2::labs(
             title = paste0("Dispersion Plot: \"", stats$search_term, "\" by Text"),
@@ -564,25 +580,19 @@ dispersionServer <- function(id, token_data, meta_filter, tagged_data = NULL) {
           size = 2, alpha = 0.6, color = "#2E86AB"
         )
         
-        # Facet by individual text
+        # Facet by individual text. Fixed 0-100% axis (same span for every
+        # text) so position is comparable and the % labels are accurate.
         p <- p +
-          ggplot2::facet_wrap(~text, scales = "free_x", ncol = 1, drop = FALSE) +
+          ggplot2::facet_wrap(~text, ncol = 1, drop = FALSE) +
           ggplot2::theme(
             strip.text = ggplot2::element_text(face = "bold", size = 8),
             strip.background = ggplot2::element_rect(fill = "#e3f2fd", color = NA),
             panel.grid.major.x = ggplot2::element_line(color = "gray80", linetype = "dashed")
           ) +
           ggplot2::scale_x_continuous(
-            breaks = function(limits) {
-              if (is.na(limits[1]) || is.na(limits[2]) || limits[1] == limits[2]) {
-                return(numeric(0))
-              }
-              seq(limits[1], limits[2], length.out = 6)
-            },
-            labels = function(breaks) {
-              if (length(breaks) == 0) return(character(0))
-              paste0(seq(0, 100, 20), "%")
-            }
+            limits = c(0, 1),
+            breaks = seq(0, 1, 0.2),
+            labels = paste0(seq(0, 100, 20), "%")
           )
         
         return(p)
@@ -598,6 +608,7 @@ dispersionServer <- function(id, token_data, meta_filter, tagged_data = NULL) {
           empty_facets <- data.frame(
             position = 1,
             doc_length = 1,
+            rel_position = NA_real_,
             text = NA_character_,
             text_id = NA,
             meta = factor(meta_without_hits, levels = all_meta_groups),
@@ -606,18 +617,18 @@ dispersionServer <- function(id, token_data, meta_filter, tagged_data = NULL) {
           )
           
           positions_df$is_placeholder <- FALSE
-          positions_df <- rbind(positions_df, empty_facets)
+          positions_df <- dplyr::bind_rows(positions_df, empty_facets)
         } else {
           positions_df$is_placeholder <- FALSE
         }
         
         # Create barcode plot
-        p <- ggplot2::ggplot(positions_df, ggplot2::aes(x = position, y = 1)) +
+        p <- ggplot2::ggplot(positions_df, ggplot2::aes(x = rel_position, y = 1)) +
           ggplot2::scale_y_continuous(limits = c(0.5, 1.5)) +
           ggplot2::labs(
             title = paste0("Dispersion Plot: \"", stats$search_term, "\" by Meta Group"),
             subtitle = paste0("Total: ", total_occurrences, " occurrences"),
-            x = "Position in Text",
+            x = "Position within text",
             y = ""
           ) +
           ggplot2::theme_minimal() +
@@ -636,25 +647,19 @@ dispersionServer <- function(id, token_data, meta_filter, tagged_data = NULL) {
           size = 2, alpha = 0.6, color = "#2E86AB"
         )
         
-        # Facet by meta
+        # Facet by meta. Fixed 0-100% axis; points show position within each
+        # text, pooled across the group.
         p <- p +
-          ggplot2::facet_wrap(~meta, scales = "free_x", ncol = 1, drop = FALSE) +
+          ggplot2::facet_wrap(~meta, ncol = 1, drop = FALSE) +
           ggplot2::theme(
             strip.text = ggplot2::element_text(face = "bold", size = 10),
             strip.background = ggplot2::element_rect(fill = "#e3f2fd", color = NA),
             panel.grid.major.x = ggplot2::element_line(color = "gray80", linetype = "dashed")
           ) +
           ggplot2::scale_x_continuous(
-            breaks = function(limits) {
-              if (is.na(limits[1]) || is.na(limits[2]) || limits[1] == limits[2]) {
-                return(numeric(0))
-              }
-              seq(limits[1], limits[2], length.out = 6)
-            },
-            labels = function(breaks) {
-              if (length(breaks) == 0) return(character(0))
-              paste0(seq(0, 100, 20), "%")
-            }
+            limits = c(0, 1),
+            breaks = seq(0, 1, 0.2),
+            labels = paste0(seq(0, 100, 20), "%")
           )
         
         return(p)
@@ -682,14 +687,15 @@ dispersionServer <- function(id, token_data, meta_filter, tagged_data = NULL) {
           # Assign y-position based on meta group
           positions_df$y_pos <- y_positions[as.numeric(positions_df$meta)]
           
-          p <- ggplot2::ggplot(positions_df, ggplot2::aes(x = position, y = y_pos, color = meta)) +
+          p <- ggplot2::ggplot(positions_df, ggplot2::aes(x = rel_position, y = y_pos, color = meta)) +
             ggplot2::geom_point(size = 2.5, alpha = 0.8) +
             ggplot2::scale_y_continuous(limits = c(0.5, 1.5)) +
+            ggplot2::scale_x_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.2), labels = paste0(seq(0, 100, 20), "%")) +
             ggplot2::scale_color_viridis_d(option = "viridis", name = "Meta Group") +
             ggplot2::labs(
               title = paste0("Dispersion Plot: \"", stats$search_term, "\" across Corpus"),
-              subtitle = paste0("Total: ", total_occurrences, " occurrences | Color & position = meta group"),
-              x = "Position in Corpus (by text order)",
+              subtitle = paste0("Total: ", total_occurrences, " occurrences | Colour = meta group | position within text"),
+              x = "Position within text",
               y = ""
             ) +
             ggplot2::theme_minimal() +
@@ -705,13 +711,14 @@ dispersionServer <- function(id, token_data, meta_filter, tagged_data = NULL) {
             )
         } else {
           # Single color
-          p <- ggplot2::ggplot(positions_df, ggplot2::aes(x = position, y = 1)) +
+          p <- ggplot2::ggplot(positions_df, ggplot2::aes(x = rel_position, y = 1)) +
             ggplot2::geom_point(size = 2, alpha = 0.6, color = "#2E86AB") +
             ggplot2::scale_y_continuous(limits = c(0.5, 1.5)) +
+            ggplot2::scale_x_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.2), labels = paste0(seq(0, 100, 20), "%")) +
             ggplot2::labs(
               title = paste0("Dispersion Plot: \"", stats$search_term, "\" across Corpus"),
-              subtitle = paste0("Total: ", total_occurrences, " occurrences"),
-              x = "Position in Corpus (by text order)",
+              subtitle = paste0("Total: ", total_occurrences, " occurrences | position within text"),
+              x = "Position within text",
               y = ""
             ) +
             ggplot2::theme_minimal() +

@@ -99,6 +99,14 @@ dispersionUI <- function(id) {
         )
       ),
       
+      # Bar plot y-axis toggle ----
+      radioButtons(ns("bar_yaxis"), "Bar plot shows:",
+                   choices = c("Frequency per 1,000 words (matches DP)" = "norm",
+                               "Raw frequency" = "raw"),
+                   selected = "norm"),
+      helpText(style = "margin-top: -10px; font-size: 12px;",
+               "Parts differ in length, so raw counts can look uneven even when dispersion is even. The per-1,000 view is what the DP value reflects."),
+      
       # Faceting Option (display only) ----
       conditionalPanel(
         condition = paste0("input['", ns("dispersion_level"), "'] == 'text'"),
