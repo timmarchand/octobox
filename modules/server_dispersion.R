@@ -357,6 +357,14 @@ dispersionServer <- function(id, token_data, meta_filter, tagged_data = NULL) {
       # Find all positions where term appears
       tokens_list <- quanteda::as.list(toks)
       tokens_lower <- lapply(tokens_list, tolower)
+
+      # Stable document names for faceting/labelling. quanteda usually names
+      # these by docname, but guard against NULL/NA so facets don't collapse to
+      # bare integers (which leaves the by-text barcode blank).
+      doc_names <- names(tokens_list)
+      if (is.null(doc_names)) doc_names <- rep(NA_character_, length(tokens_list))
+      doc_names <- ifelse(is.na(doc_names) | !nzchar(doc_names),
+                          paste0("Text_", seq_along(tokens_list)), doc_names)
       
       search_term <- tolower(trimws(stats$search_term))
       
@@ -394,7 +402,7 @@ dispersionServer <- function(id, token_data, meta_filter, tagged_data = NULL) {
           positions_data[[i]] <- data.frame(
             position = matches,
             doc_length = length(tokens),
-            text = names(tokens_list)[i] %||% paste0("Text_", i),
+            text = doc_names[i],
             text_id = i,  # NEW: track text ID
             meta = meta_all[i],
             stringsAsFactors = FALSE
@@ -431,7 +439,7 @@ dispersionServer <- function(id, token_data, meta_filter, tagged_data = NULL) {
         # Individual text level - one plot per text
         
         # Get all text names
-        all_texts <- names(tokens_list)
+        all_texts <- doc_names
         
         # Add empty texts (those without matches)
         texts_with_hits <- unique(positions_df$text)
