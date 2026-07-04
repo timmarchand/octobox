@@ -36,6 +36,10 @@ tokenizationServer <- function(id, selected_text_and_meta, meta_filter_global, v
         # Data Extraction & Filtering ----
         text <- selected_text_and_meta()$text
         meta <- selected_text_and_meta()$meta
+        doc_id <- selected_text_and_meta()$doc_id
+        if (is.null(doc_id) || length(doc_id) != length(text)) {
+          doc_id <- as.character(seq_along(text))
+        }
         filter_meta <- meta_filter_global()
         
         incProgress(0.1, detail = "Applying filters...")
@@ -44,6 +48,7 @@ tokenizationServer <- function(id, selected_text_and_meta, meta_filter_global, v
           keep <- meta %in% filter_meta
           text <- text[keep]
           meta <- meta[keep]
+          doc_id <- doc_id[keep]
         }
         
         # Validation & Cleaning ----
@@ -51,6 +56,7 @@ tokenizationServer <- function(id, selected_text_and_meta, meta_filter_global, v
         valid_idx <- !is.na(text) & nchar(trimws(text)) > 0
         text <- text[valid_idx]
         meta <- meta[valid_idx]
+        doc_id <- doc_id[valid_idx]
         
         if (length(text) == 0) {
           token_data(NULL)
@@ -79,8 +85,11 @@ tokenizationServer <- function(id, selected_text_and_meta, meta_filter_global, v
         
         # Quanteda Processing ----
         incProgress(0.6, detail = "Creating corpus...")
-        corpus_df <- data.frame(doc_id = seq_along(text_processed), text = text_processed, meta = meta, stringsAsFactors = FALSE)
-        corp <- quanteda::corpus(corpus_df, text_field = "text")
+        # Use the real doc_id as the document identifier (made unique for
+        # quanteda) so downstream views label texts by name, not position.
+        safe_doc_id <- make.unique(as.character(doc_id), sep = "_")
+        corpus_df <- data.frame(doc_id = safe_doc_id, text = text_processed, meta = meta, stringsAsFactors = FALSE)
+        corp <- quanteda::corpus(corpus_df, docid_field = "doc_id", text_field = "text")
         
         incProgress(0.8, detail = "Tokenizing...")
         toks <- quanteda::tokens(

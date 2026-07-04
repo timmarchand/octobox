@@ -346,7 +346,16 @@ dataInputServer <- function(id) {
           rep("unknown", length(text_data))
         }
 
-        return(list(text = text_data, meta = meta_data))
+        # Preserve a real document id if the CSV has a "doc_id" column, so
+        # downstream views (e.g. the dispersion barcode) label texts properly
+        # instead of by position (1, 2, 3...).
+        doc_id_data <- if ("doc_id" %in% names(df)) {
+          as.character(df[["doc_id"]])
+        } else {
+          NULL
+        }
+
+        return(list(text = text_data, meta = meta_data, doc_id = doc_id_data))
       }
     })
 
