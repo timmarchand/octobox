@@ -126,7 +126,7 @@ dispersionServer <- function(id, token_data, meta_filter, tagged_data = NULL) {
         
         if (is_tagged_search) {
           tag_col <- input$tag_column %||% "xpos"
-          
+
           if (tag_col %in% c("xpos_only", "upos_only", "pos_only")) {
             # POS-only mode: each token is a bare tag (e.g. "nn", "noun").
             # The search term IS the whole token - match it directly.
@@ -325,111 +325,14 @@ dispersionServer <- function(id, token_data, meta_filter, tagged_data = NULL) {
                         backgroundPosition = "center")
     })
     
-    # 5. OUTPUT: BAR PLOT ----
-    
-    output$dispersion_plot <- renderPlot({
-      req(dispersion_results())
-      
-      results <- dispersion_results()$results
-      stats <- dispersion_results()$stats
-      
-      # Which y-value to plot: normalised (matches DP) or raw counts.
-      use_norm <- identical(input$bar_yaxis %||% "norm", "norm")
-      results$plot_y <- if (use_norm) results$rel_freq_per_1000 else results$frequency
-      y_label <- if (use_norm) "Frequency per 1,000 words" else "Raw frequency"
-      
-      # Check if we should facet by meta
-      facet_by_meta <- input$facet_by_meta %||% FALSE
-      
-      # Add meta information if analyzing at text level
-      if (stats$level == "text" && facet_by_meta) {
-        # Get meta information from tokens
-        toks <- active_tokens()
-        meta_all <- quanteda::docvars(toks, "meta")
-        filter_meta <- meta_filter()
-        
-        if (!is.null(filter_meta) && length(filter_meta) > 0) {
-          keep <- meta_all %in% filter_meta
-          meta_all <- meta_all[keep]
-        }
-        
-        # Match meta to results
-        doc_names <- names(toks)
-        if (!is.null(filter_meta) && length(filter_meta) > 0) {
-          doc_names <- doc_names[keep]
-        }
-        
-        # Create a lookup for meta groups
-        meta_lookup <- setNames(meta_all, doc_names)
-        
-        # Add meta column to results
-        results$meta_group <- sapply(results$group, function(g) {
-          if (g %in% names(meta_lookup)) {
-            return(meta_lookup[[g]])
-          } else {
-            return("Unknown")
-          }
-        })
-      }
-      
-      # Create bar plot
-      if (stats$level == "text" && facet_by_meta && "meta_group" %in% names(results)) {
-        # Faceted by meta group.
-        # Plot NORMALISED frequency (per 1,000 words), not raw counts: DP is a
-        # proportional measure, and parts differ in length, so raw counts would
-        # misrepresent the dispersion the DP value describes.
-        p <- ggplot2::ggplot(results, ggplot2::aes(x = reorder(group, plot_y), y = plot_y)) +
-          ggplot2::geom_col(fill = "#2E86AB", alpha = 0.8) +
-          ggplot2::coord_flip() +
-          ggplot2::facet_wrap(~meta_group, scales = "free_x") +
-          ggplot2::labs(
-            title = paste0("Distribution of \"", stats$search_term, "\" by Meta Group"),
-            subtitle = paste0("Overall DP = ", stats$dp, " | Range = ", stats$range, "%"),
-            x = "Text",
-            y = y_label
-          ) +
-          ggplot2::theme_minimal() +
-          ggplot2::theme(
-            plot.title = ggplot2::element_text(size = 14, face = "bold"),
-            plot.subtitle = ggplot2::element_text(size = 11, color = "gray50"),
-            axis.text.y = ggplot2::element_text(size = 8),
-            strip.text = ggplot2::element_text(face = "bold", size = 10),
-            strip.background = ggplot2::element_rect(fill = "#e3f2fd", color = NA)
-          )
-        
-      } else {
-        # Single plot. Plot NORMALISED frequency (per 1,000 words) so bar
-        # heights correspond to the DP measure: even bars = even dispersion.
-        results$group <- factor(results$group, levels = results$group[order(results$plot_y)])
-        
-        p <- ggplot2::ggplot(results, ggplot2::aes(x = group, y = plot_y)) +
-          ggplot2::geom_col(fill = "#2E86AB", alpha = 0.8) +
-          ggplot2::coord_flip() +
-          ggplot2::labs(
-            title = paste0("Distribution of \"", stats$search_term, "\" across ",
-                           ifelse(stats$level == "meta", "Meta Groups", "Texts")),
-            subtitle = paste0("DP = ", stats$dp, " | Range = ", stats$range, "% | bars show ", tolower(y_label)),
-            x = ifelse(stats$level == "meta", "Meta Group", "Text"),
-            y = y_label
-          ) +
-          ggplot2::theme_minimal() +
-          ggplot2::theme(
-            plot.title = ggplot2::element_text(size = 14, face = "bold"),
-            plot.subtitle = ggplot2::element_text(size = 11, color = "gray50"),
-            axis.text.y = ggplot2::element_text(size = 9)
-          )
-      }
-      
-      return(p)
-    })
-    
     # 6. OUTPUT: BARCODE PLOT & DYNAMIC UI ----
     
-    output$dispersion_barcode <- renderPlot({
+    # Barcode built as a reactive so both the display and the PNG download use
+    # the same plot object.
+    barcode_plot_obj <- reactive({
       req(dispersion_results())
       
-      facet_by_meta <- isolate(input$facet_by_meta %||% FALSE)
-      barcode_granularity <- input$barcode_granularity %||% "corpus"  # NEW
+      barcode_granularity <- input$barcode_granularity %||% "corpus"
       
       results <- dispersion_results()$results
       stats <- dispersion_results()$stats
@@ -735,7 +638,28 @@ dispersionServer <- function(id, token_data, meta_filter, tagged_data = NULL) {
         return(p)
       }
     })
+
+    output$dispersion_barcode <- renderPlot({ barcode_plot_obj() })
     
+    # Plain-language note explaining what the current barcode layout shows.
+    output$barcode_layout_note <- renderUI({
+      gran <- input$barcode_granularity %||% "corpus"
+      level <- input$dispersion_level %||% "text"
+
+      msg <- if (level == "meta") {
+        "Each meta group is one row; marks show where the word falls within each group (0-100%)."
+      } else if (gran == "corpus") {
+        "One row for the whole corpus. Each mark is an occurrence, positioned by how far through its text it appears (0-100%). Even spacing = even dispersion."
+      } else if (gran == "meta") {
+        "One row per meta group. Marks show where the word falls within a text (0-100%), pooled across the texts in that group."
+      } else {
+        "One row per text. Each mark shows where the word appears within that individual text (0-100%) - the clearest view of clustering."
+      }
+
+      div(style = "font-size: 12px; color: #31708f; background: #d9edf7; border-radius: 3px; padding: 8px; margin-top: 8px;",
+          tags$strong("What this shows: "), msg)
+    })
+
     # Dynamic Height for barcode plot
     output$barcode_plot_ui <- renderUI({
       req(dispersion_results())
@@ -792,155 +716,6 @@ dispersionServer <- function(id, token_data, meta_filter, tagged_data = NULL) {
       plotOutput(ns("dispersion_barcode"), height = paste0(height, "px"))
     })
     
-    # 7. OUTPUT: HEATMAP & LINE PLOTS ----
-    
-    output$dispersion_heatmap <- renderPlot({
-      req(dispersion_results())
-      
-      # Heatmap only makes sense for meta-level analysis
-      if (input$dispersion_level != "meta") {
-        return(ggplot2::ggplot() +
-                 ggplot2::annotate("text", x = 1, y = 1,
-                                   label = "Heatmap visualization is only available\nwhen analyzing by Meta Groups",
-                                   size = 6, color = "gray50") +
-                 ggplot2::theme_void())
-      }
-      
-      results <- dispersion_results()$results
-      stats <- dispersion_results()$stats
-      
-      # Create heatmap data
-      results$rel_freq_scaled <- scale(results$rel_freq_per_1000)[,1]
-      
-      p <- ggplot2::ggplot(results, ggplot2::aes(x = 1, y = group, fill = rel_freq_per_1000)) +
-        ggplot2::geom_tile(color = "white", size = 1) +
-        ggplot2::geom_text(ggplot2::aes(label = frequency), color = "white", fontface = "bold") +
-        ggplot2::scale_fill_gradient2(
-          low = "#f7fbff",
-          mid = "#6baed6",
-          high = "#08519c",
-          midpoint = median(results$rel_freq_per_1000),
-          name = "Freq/1000"
-        ) +
-        ggplot2::labs(
-          title = paste0("Heatmap: \"", stats$search_term, "\" Distribution"),
-          subtitle = "Darker colors = higher relative frequency",
-          x = "",
-          y = "Meta Group"
-        ) +
-        ggplot2::theme_minimal() +
-        ggplot2::theme(
-          plot.title = ggplot2::element_text(size = 14, face = "bold"),
-          axis.text.x = ggplot2::element_blank(),
-          axis.ticks.x = ggplot2::element_blank(),
-          panel.grid = ggplot2::element_blank()
-        )
-      
-      return(p)
-    })
-    
-    output$dispersion_line <- renderPlot({
-      req(dispersion_results())
-      
-      results <- dispersion_results()$results
-      stats <- dispersion_results()$stats
-      
-      # Check if we should facet by meta
-      facet_by_meta <- input$facet_by_meta %||% FALSE
-      
-      # Add meta information if analyzing at text level
-      if (stats$level == "text" && facet_by_meta) {
-        # Get meta information from tokens
-        toks <- active_tokens()
-        meta_all <- quanteda::docvars(toks, "meta")
-        filter_meta <- meta_filter()
-        
-        if (!is.null(filter_meta) && length(filter_meta) > 0) {
-          keep <- meta_all %in% filter_meta
-          meta_all <- meta_all[keep]
-        }
-        
-        # Match meta to results
-        doc_names <- names(toks)
-        if (!is.null(filter_meta) && length(filter_meta) > 0) {
-          doc_names <- doc_names[keep]
-        }
-        
-        # Create a lookup for meta groups
-        meta_lookup <- setNames(meta_all, doc_names)
-        
-        # Add meta column to results
-        results$meta_group <- sapply(results$group, function(g) {
-          if (g %in% names(meta_lookup)) {
-            return(meta_lookup[[g]])
-          } else {
-            return("Unknown")
-          }
-        })
-        
-        # ENSURE ALL META GROUPS REPRESENTED
-        all_meta_groups <- unique(meta_all)
-        results$meta_group <- factor(results$meta_group, levels = all_meta_groups)
-      }
-      
-      # Add position for ordering
-      results$position <- seq_len(nrow(results))
-      
-      if (stats$level == "text" && facet_by_meta && "meta_group" %in% names(results)) {
-        # Faceted line plot
-        p <- ggplot2::ggplot(results, ggplot2::aes(x = position, y = rel_freq_per_1000)) +
-          ggplot2::geom_line(color = "#2E86AB", size = 1) +
-          ggplot2::geom_point(color = "#2E86AB", size = 3) +
-          ggplot2::facet_wrap(~meta_group, scales = "free_x", drop = FALSE) +  # CHANGED from "free"
-          ggplot2::scale_y_continuous(limits = c(0, NA)) +  # FORCE Y-AXIS TO START AT ZERO
-          ggplot2::labs(
-            title = paste0("Relative Frequency Trend: \"", stats$search_term, "\" by Meta Group"),
-            subtitle = paste0("Overall DP = ", stats$dp, " | Range = ", stats$range, "%"),
-            x = "Text",
-            y = "Relative Frequency (per 1000 tokens)"
-          ) +
-          ggplot2::theme_minimal() +
-          ggplot2::theme(
-            plot.title = ggplot2::element_text(size = 14, face = "bold"),
-            plot.subtitle = ggplot2::element_text(size = 11, color = "gray50"),
-            axis.text.x = ggplot2::element_text(angle = 45, hjust = 1, size = 7),
-            strip.text = ggplot2::element_text(face = "bold", size = 10),
-            strip.background = ggplot2::element_rect(fill = "#e3f2fd", color = NA)
-          )
-      } else {
-        # Single line plot
-        p <- ggplot2::ggplot(results, ggplot2::aes(x = position, y = rel_freq_per_1000)) +
-          ggplot2::geom_line(color = "#2E86AB", size = 1) +
-          ggplot2::geom_point(color = "#2E86AB", size = 3) +
-          ggplot2::geom_hline(
-            yintercept = mean(results$rel_freq_per_1000),
-            linetype = "dashed",
-            color = "red",
-            alpha = 0.5
-          ) +
-          ggplot2::scale_y_continuous(limits = c(0, NA)) +  # FORCE Y-AXIS TO START AT ZERO
-          ggplot2::labs(
-            title = paste0("Relative Frequency Trend: \"", stats$search_term, "\""),
-            subtitle = paste0("Red line = mean frequency (",
-                              round(mean(results$rel_freq_per_1000), 2), " per 1000)"),
-            x = ifelse(stats$level == "meta", "Meta Group", "Text"),
-            y = "Relative Frequency (per 1000 tokens)"
-          ) +
-          ggplot2::scale_x_continuous(
-            breaks = results$position,
-            labels = results$group
-          ) +
-          ggplot2::theme_minimal() +
-          ggplot2::theme(
-            plot.title = ggplot2::element_text(size = 14, face = "bold"),
-            plot.subtitle = ggplot2::element_text(size = 11, color = "gray50"),
-            axis.text.x = ggplot2::element_text(angle = 45, hjust = 1, size = 8)
-          )
-      }
-      
-      return(p)
-    })
-    
     # 8. DOWNLOAD HANDLERS ----
     
     output$download_dispersion_csv <- downloadHandler(
@@ -979,13 +754,13 @@ dispersionServer <- function(id, token_data, meta_filter, tagged_data = NULL) {
     
     output$download_dispersion_plot <- downloadHandler(
       filename = function() {
-        viz_type <- input$viz_type %||% "bar"
-        facet_suffix <- if(input$facet_by_meta %||% FALSE) "_faceted" else ""
-        paste0("dispersion_", viz_type, facet_suffix, "_", Sys.Date(), ".png")
+        gran <- input$barcode_granularity %||% "corpus"
+        paste0("dispersion_barcode_", gran, "_", Sys.Date(), ".png")
       },
       content = function(file) {
         req(dispersion_results())
-        # Logic for plot export would go here...
+        ggplot2::ggsave(file, plot = barcode_plot_obj(), width = 10, height = 6,
+                        dpi = 150, bg = "white")
       }
     )
     
