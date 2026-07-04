@@ -683,16 +683,11 @@ dispersionServer <- function(id, token_data, meta_filter, tagged_data = NULL) {
         toks <- active_tokens()
         n_texts <- quanteda::ndoc(toks)
         
-        # Height per text
-        if (n_texts <= 5) {
-          height <- n_texts * 120
-        } else if (n_texts <= 10) {
-          height <- n_texts * 80
-        } else {
-          height <- n_texts * 60
-        }
-        
-        height <- min(height, 1500)  # Cap at 1500px
+        # Height per text. Keep a floor per panel so points are never clipped;
+        # the container scrolls if the total is large.
+        height <- n_texts * 45
+        height <- max(height, 200)
+        height <- min(height, 4000)  # generous cap; scrolls if needed
         
       } else if (stats$level == "text" && barcode_granularity == "meta") {
         # Meta group level
@@ -767,8 +762,27 @@ dispersionServer <- function(id, token_data, meta_filter, tagged_data = NULL) {
       },
       content = function(file) {
         req(dispersion_results())
-        ggplot2::ggsave(file, plot = barcode_plot_obj(), width = 10, height = 6,
-                        dpi = 150, bg = "white")
+        stats <- dispersion_results()$stats
+        gran <- input$barcode_granularity %||% "corpus"
+
+        # Height must scale with the number of facets, or many small panels get
+        # squeezed until the points are clipped and only the strips show. Give
+        # each facet ~0.5in, with sensible floors/ceilings.
+        n_facets <- tryCatch({
+          toks <- active_tokens()
+          if (stats$level == "text" && gran == "text") {
+            quanteda::ndoc(toks)
+          } else if (gran == "meta" || stats$level == "meta") {
+            length(unique(quanteda::docvars(toks, "meta")))
+          } else {
+            1
+          }
+        }, error = function(e) 1)
+
+        plot_height <- max(3, min(n_facets * 0.5, 40))
+
+        ggplot2::ggsave(file, plot = barcode_plot_obj(), width = 10,
+                        height = plot_height, dpi = 150, bg = "white", limitsize = FALSE)
       }
     )
     
