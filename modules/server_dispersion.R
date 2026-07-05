@@ -126,7 +126,7 @@ dispersionServer <- function(id, token_data, meta_filter, tagged_data = NULL) {
         
         if (is_tagged_search) {
           tag_col <- input$tag_column %||% "xpos"
-
+          
           if (tag_col %in% c("xpos_only", "upos_only", "pos_only")) {
             # POS-only mode: each token is a bare tag (e.g. "nn", "noun").
             # The search term IS the whole token - match it directly.
@@ -357,7 +357,7 @@ dispersionServer <- function(id, token_data, meta_filter, tagged_data = NULL) {
       # Find all positions where term appears
       tokens_list <- quanteda::as.list(toks)
       tokens_lower <- lapply(tokens_list, tolower)
-
+      
       # Stable document names for faceting/labelling. quanteda usually names
       # these by docname, but guard against NULL/NA so facets don't collapse to
       # bare integers (which leaves the by-text barcode blank).
@@ -430,6 +430,55 @@ dispersionServer <- function(id, token_data, meta_filter, tagged_data = NULL) {
       # token index can't be compared across texts of different lengths, and the
       # 0-100% axis labels are only correct against this normalised position.
       positions_df$rel_position <- positions_df$position / positions_df$doc_length
+      
+      # Group-cumulative position: where each occurrence falls across the WHOLE
+      # concatenated meta group (or whole corpus), 0-100%. This is the "true"
+      # dispersion view - a word locked in one text correctly bunches in that
+      # text's slice, instead of being smeared 0-100% by within-text pooling.
+      #
+      # Build a per-text length/order table for every text (matches doc_names
+      # order = corpus order), then cumulative offsets within each meta group.
+      doc_lengths_all <- vapply(tokens_lower, length, integer(1))
+      text_index <- data.frame(
+        text = doc_names,
+        meta = as.character(meta_all),
+        len = doc_lengths_all,
+        order = seq_along(doc_names),
+        stringsAsFactors = FALSE
+      )
+      # Offset = total length of all EARLIER texts in the same meta group.
+      text_index <- text_index %>%
+        dplyr::group_by(meta) %>%
+        dplyr::arrange(order, .by_group = TRUE) %>%
+        dplyr::mutate(
+          group_offset = cumsum(len) - len,       # start position of this text
+          group_total  = sum(len)                  # total tokens in the group
+        ) %>%
+        dplyr::ungroup()
+      
+      # For the whole-corpus view we need corpus-wide offsets too.
+      corpus_index <- text_index %>%
+        dplyr::arrange(order) %>%
+        dplyr::mutate(
+          corpus_offset = cumsum(len) - len,
+          corpus_total  = sum(len)
+        )
+      
+      # Join offsets back onto each occurrence and compute the two cumulative
+      # relative positions.
+      positions_df <- positions_df %>%
+        dplyr::left_join(
+          dplyr::select(text_index, text, group_offset, group_total),
+          by = "text"
+        ) %>%
+        dplyr::left_join(
+          dplyr::select(corpus_index, text, corpus_offset, corpus_total),
+          by = "text"
+        ) %>%
+        dplyr::mutate(
+          rel_position_group  = (group_offset + position) / group_total,
+          rel_position_corpus = (corpus_offset + position) / corpus_total
+        )
       
       # Ensure ALL meta groups are represented
       positions_df$meta <- factor(positions_df$meta, levels = all_meta_groups)
@@ -534,7 +583,7 @@ dispersionServer <- function(id, token_data, meta_filter, tagged_data = NULL) {
         }
         
         # Create barcode plot
-        p <- ggplot2::ggplot(positions_df, ggplot2::aes(x = rel_position, y = 1)) +
+        p <- ggplot2::ggplot(positions_df, ggplot2::aes(x = rel_position_group, y = 1)) +
           ggplot2::scale_y_continuous(limits = c(0.5, 1.5)) +
           ggplot2::labs(
             title = paste0("Dispersion Plot: \"", stats$search_term, "\" by Meta Group"),
@@ -598,7 +647,7 @@ dispersionServer <- function(id, token_data, meta_filter, tagged_data = NULL) {
           # Assign y-position based on meta group
           positions_df$y_pos <- y_positions[as.numeric(positions_df$meta)]
           
-          p <- ggplot2::ggplot(positions_df, ggplot2::aes(x = rel_position, y = y_pos, color = meta)) +
+          p <- ggplot2::ggplot(positions_df, ggplot2::aes(x = rel_position_corpus, y = y_pos, color = meta)) +
             ggplot2::geom_point(size = 2.5, alpha = 0.8) +
             ggplot2::scale_y_continuous(limits = c(0.5, 1.5)) +
             ggplot2::scale_x_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.2), labels = paste0(seq(0, 100, 20), "%")) +
@@ -622,7 +671,7 @@ dispersionServer <- function(id, token_data, meta_filter, tagged_data = NULL) {
             )
         } else {
           # Single color
-          p <- ggplot2::ggplot(positions_df, ggplot2::aes(x = rel_position, y = 1)) +
+          p <- ggplot2::ggplot(positions_df, ggplot2::aes(x = rel_position_corpus, y = 1)) +
             ggplot2::geom_point(size = 2, alpha = 0.6, color = "#2E86AB") +
             ggplot2::scale_y_continuous(limits = c(0.5, 1.5)) +
             ggplot2::scale_x_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.2), labels = paste0(seq(0, 100, 20), "%")) +
@@ -646,28 +695,28 @@ dispersionServer <- function(id, token_data, meta_filter, tagged_data = NULL) {
         return(p)
       }
     })
-
+    
     output$dispersion_barcode <- renderPlot({ barcode_plot_obj() })
     
     # Plain-language note explaining what the current barcode layout shows.
     output$barcode_layout_note <- renderUI({
       gran <- input$barcode_granularity %||% "corpus"
       level <- input$dispersion_level %||% "text"
-
+      
       msg <- if (level == "meta") {
         "Each meta group is one row; marks show where the word falls within each group (0-100%)."
       } else if (gran == "corpus") {
-        "One row for the whole corpus. Each mark is an occurrence, positioned by how far through its text it appears (0-100%). Even spacing = even dispersion."
+        "One row for the whole corpus. Each mark is positioned by how far through the entire corpus (all texts end to end, 0-100%) it appears. Even spacing = even dispersion; clustering = clumped."
       } else if (gran == "meta") {
-        "One row per meta group. Marks show where the word falls within a text (0-100%), pooled across the texts in that group."
+        "One row per meta group. Marks show where the word falls across the whole group (all its texts laid end to end, 0-100%) - so a word confined to one text bunches in that text's slice."
       } else {
         "One row per text. Each mark shows where the word appears within that individual text (0-100%) - the clearest view of clustering."
       }
-
+      
       div(style = "font-size: 12px; color: #31708f; background: #d9edf7; border-radius: 3px; padding: 8px; margin-top: 8px;",
           tags$strong("What this shows: "), msg)
     })
-
+    
     # Dynamic Height for barcode plot
     output$barcode_plot_ui <- renderUI({
       req(dispersion_results())
@@ -764,7 +813,7 @@ dispersionServer <- function(id, token_data, meta_filter, tagged_data = NULL) {
         req(dispersion_results())
         stats <- dispersion_results()$stats
         gran <- input$barcode_granularity %||% "corpus"
-
+        
         # Height must scale with the number of facets, or many small panels get
         # squeezed until the points are clipped and only the strips show. Give
         # each facet ~0.5in, with sensible floors/ceilings.
@@ -778,9 +827,9 @@ dispersionServer <- function(id, token_data, meta_filter, tagged_data = NULL) {
             1
           }
         }, error = function(e) 1)
-
+        
         plot_height <- max(3, min(n_facets * 0.5, 40))
-
+        
         ggplot2::ggsave(file, plot = barcode_plot_obj(), width = 10,
                         height = plot_height, dpi = 150, bg = "white", limitsize = FALSE)
       }
