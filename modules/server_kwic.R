@@ -33,6 +33,11 @@ kwicServer <- function(id, token_data, meta_filter, tagged_data = NULL) {
     
     # 1. KWIC Computation ----
     # 1. KWIC Computation ----
+    # Flat token stream from the last concordance run (with boundary sentinels),
+    # used by collocation to count each collocate token once even when node
+    # windows overlap. Defined before result_data so it exists when set.
+    kwic_flat <- reactiveVal(NULL)
+    
     result_data <- eventReactive(input$run, {
       req(active_tokens())
       
@@ -152,10 +157,6 @@ kwicServer <- function(id, token_data, meta_filter, tagged_data = NULL) {
       })
     })
     
-    # Flat token stream from the last concordance run (with boundary sentinels),
-    # used by collocation to count each collocate token once even when node
-    # windows overlap.
-    kwic_flat <- reactiveVal(NULL)
     
     # 2. UI State Management ----
     output$has_results <- reactive({
@@ -434,50 +435,54 @@ collocationServer <- function(id, kwic_results, token_data = NULL, meta_filter =
         
         # Deduped O11 for the STATISTICS: count each collocate corpus token at
         # most once, even if it falls inside two overlapping node windows.
-        # We map each selected position to an absolute offset from the node and
-        # collect distinct (collocate, absolute-position) pairs.
-        O11 <- O11_raw  # fallback if flat stream unavailable
+        O11 <- O11_raw  # fallback if flat stream unavailable or dedupe fails
         flat <- kwic_flat()
-        node_ids <- df$token_id
-        if (!is.null(flat) && !is.null(node_ids)) {
-          # Position label -> signed offset (left3 = -3, right2 = +2).
-          offset_of <- function(p) {
-            side <- substr(p, 1, 4)
-            num  <- as.integer(gsub("[^0-9]", "", p))
-            if (grepl("^left", p)) -num else num
-          }
-          # Gather absolute positions of each collocate occurrence.
-          occ <- list()  # collocate -> integer vector of absolute positions
-          BND <- "\u0001DOCBREAK\u0001"
-          for (p in positions) {
-            off <- offset_of(p)
-            abs_pos <- node_ids + off
-            valid <- abs_pos >= 1 & abs_pos <= length(flat)
-            # Exclude if the straight path node->offset crosses a boundary
-            # sentinel (so windows never span documents, matching the display).
-            crosses <- vapply(seq_along(node_ids), function(k) {
-              a <- node_ids[k]; b <- a + off
-              if (b < 1 || b > length(flat)) return(TRUE)
-              lo <- min(a, b); hi <- max(a, b)
-              if (hi - lo <= 1) return(FALSE)
-              any(flat[(lo + 1):(hi - 1)] == BND)
-            }, logical(1))
-            valid <- valid & !crosses
-            abs_pos <- (node_ids + off)[valid]
-            if (length(abs_pos) == 0) next
-            toks_here <- tolower(flat[abs_pos])
-            keep <- !is.na(toks_here) & toks_here != "" & toks_here != "_" &
-              toks_here != BND
-            abs_pos <- abs_pos[keep]; toks_here <- toks_here[keep]
-            for (w in unique(toks_here)) {
-              occ[[w]] <- c(occ[[w]], abs_pos[toks_here == w])
+        node_ids <- suppressWarnings(as.integer(df$token_id))
+        node_ids <- node_ids[!is.na(node_ids)]
+        O11_dedup <- tryCatch({
+          if (is.null(flat) || length(node_ids) == 0) {
+            NULL
+          } else {
+            offset_of <- function(p) {
+              num <- as.integer(gsub("[^0-9]", "", p))
+              if (grepl("^left", p)) -num else num
             }
+            occ <- list()
+            BND <- "\u0001DOCBREAK\u0001"
+            for (p in positions) {
+              off <- offset_of(p)
+              if (is.na(off)) next
+              targets <- node_ids + off
+              valid <- targets >= 1 & targets <= length(flat)
+              crosses <- vapply(node_ids, function(a) {
+                b <- a + off
+                if (b < 1 || b > length(flat)) return(TRUE)
+                lo <- min(a, b); hi <- max(a, b)
+                if (hi - lo <= 1) return(FALSE)
+                any(flat[(lo + 1):(hi - 1)] == BND)
+              }, logical(1))
+              valid <- valid & !crosses
+              abs_pos <- targets[valid]
+              if (length(abs_pos) == 0) next
+              toks_here <- tolower(flat[abs_pos])
+              keep <- !is.na(toks_here) & toks_here != "" & toks_here != "_" &
+                toks_here != BND
+              abs_pos <- abs_pos[keep]; toks_here <- toks_here[keep]
+              for (w in unique(toks_here)) {
+                occ[[w]] <- c(occ[[w]], abs_pos[toks_here == w])
+              }
+            }
+            vapply(words, function(w) {
+              v <- occ[[w]]
+              if (is.null(v)) 0L else length(unique(v))
+            }, integer(1))
           }
-          # Deduped count = number of DISTINCT absolute positions per collocate.
-          O11 <- vapply(words, function(w) {
-            v <- occ[[w]]
-            if (is.null(v)) 0L else length(unique(v))
-          }, integer(1))
+        }, error = function(e) {
+          message("Collocation dedupe failed, using raw window counts: ", e$message)
+          NULL
+        })
+        if (!is.null(O11_dedup) && length(O11_dedup) == length(words)) {
+          O11 <- O11_dedup
         }
         
         incProgress(0.5, detail = "Calculating window-level association measures...")
