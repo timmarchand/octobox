@@ -191,6 +191,7 @@ kwicServer <- function(id, token_data, meta_filter, tagged_data = NULL) {
     return(list(
       result_data = result_data,
       separated   = reactive({ input$separated }),
+      kwic_flat   = kwic_flat,
       has_results = reactive({
         res <- tryCatch(result_data(), error = function(e) NULL)
         !is.null(res) && nrow(res) > 0
@@ -436,7 +437,7 @@ collocationServer <- function(id, kwic_results, token_data = NULL, meta_filter =
         # Deduped O11 for the STATISTICS: count each collocate corpus token at
         # most once, even if it falls inside two overlapping node windows.
         O11 <- O11_raw  # fallback if flat stream unavailable or dedupe fails
-        flat <- kwic_flat()
+        flat <- if (!is.null(kwic_results$kwic_flat)) kwic_results$kwic_flat() else NULL
         node_ids <- suppressWarnings(as.integer(df$token_id))
         node_ids <- node_ids[!is.na(node_ids)]
         O11_dedup <- tryCatch({
