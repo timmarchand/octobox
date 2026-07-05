@@ -124,29 +124,23 @@ referencesUI <- function(id) {
             style = "display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 18px;",
             
             data_card(
-              "📂", "Corpus 1 — (to be added)", "#9b59b6",
-              "Placeholder. Replace with a short description of the corpus: what the texts are, how many, and any metadata columns.",
-              "Coming soon",
-              "data/corpus1.csv", "corpus1.csv"
+              "📚", "Two Novels — Alice & The War of the Worlds", "#9b59b6",
+              "Two full public-domain novels split into chapters: Lewis Carroll's Alice's Adventures in Wonderland (meta = AAIW, 12 chapters) and H. G. Wells's The War of the Worlds (meta = WOTW, 27 chapters). ~86,000 words. A clear register contrast — playful dialogue vs. descriptive first-person narration — ideal for frequency, keyword, dispersion, and collocation work.",
+              "39 texts · 2 novels · ~86k words · cols: doc_id, text, meta",
+              "data/two_novels.csv", "two_novels.csv"
             ),
             data_card(
-              "📂", "Corpus 2 — (to be added)", "#16a085",
-              "Placeholder. Replace with a short description of the corpus: what the texts are, how many, and any metadata columns.",
-              "Coming soon",
-              "data/corpus2.csv", "corpus2.csv"
-            ),
-            data_card(
-              "📂", "Corpus 3 — (to be added)", "#e67e22",
-              "Placeholder. Replace with a short description of the corpus: what the texts are, how many, and any metadata columns.",
-              "Coming soon",
-              "data/corpus3.csv", "corpus3.csv"
+              "🗳️", "C21 US Election Debates (2000–2024)", "#16a085",
+              "Transcripts of US presidential and vice-presidential debates from 2000 to 2024, one row per speaking turn. Rich metadata lets you compare by speaker, party, debate, or year — e.g. Democrat vs. Republican language, or how debate rhetoric shifts across decades. Includes moderators and town-hall questioners. Public-domain transcripts.",
+              "7,028 turns · 25 debates · cols: debate_id, debaters, type, date, turn, text, speaker, party",
+              "data/C21_debates.csv", "C21_debates.csv"
             )
           ),
           
           hr(style = "margin-top: 30px;"),
           div(
             style = "text-align: center; color: #7f8c8d; font-size: 13px;",
-            p("Corpus files will be added here. Place files in ", code("www/data/"), " and update the cards in ", code("modules/ui_references.R"), ".")
+            p("To add more corpora, place a CSV in ", code("www/data/"), " and add a ", code("data_card()"), " in ", code("modules/ui_references.R"), ".")
           )
         ),  # close Data tabPanel
         
