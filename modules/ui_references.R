@@ -144,12 +144,6 @@ referencesUI <- function(id) {
               "https://corefl.learnercorpora.com/search",
               label = "Download from COREFL"
             )
-          ),
-          
-          hr(style = "margin-top: 30px;"),
-          div(
-            style = "text-align: center; color: #7f8c8d; font-size: 13px;",
-            p("To add more corpora, place a CSV in ", code("www/data/"), " and add a ", code("data_card()"), " in ", code("modules/ui_references.R"), ".")
           )
         ),  # close Data tabPanel
         
