@@ -134,6 +134,15 @@ referencesUI <- function(id) {
               "Transcripts of US presidential and vice-presidential debates from 2000 to 2024, one row per speaking turn. Rich metadata lets you compare by speaker, party, debate, or year — e.g. Democrat vs. Republican language, or how debate rhetoric shifts across decades. Includes moderators and town-hall questioners. Public-domain transcripts.",
               "7,028 turns · 25 debates · cols: debate_id, debaters, type, date, turn, text, speaker, party",
               "data/C21_debates.csv", "C21_debates.csv"
+            ),
+            # COREFL is CC BY-NC-ND (no-derivatives), so we link to the official
+            # download rather than rehosting a reshaped copy. Link card, not a
+            # download card.
+            app_link_card(
+              "🎓", "COREFL — Corpus of English as a Foreign Language", "#e67e22",
+              "An external learner corpus: ~530,000 words from 5,177 participants learning English (L1 Spanish and L1 German), with matched written and spoken versions of the same tasks, plus L1 Spanish and L1 English control data. Ideal for L2-vs-L1 and spoken-vs-written comparisons. Free to download from the official site under CC BY-NC-ND — please cite COREFL if you use it.",
+              "https://corefl.learnercorpora.com/search",
+              label = "Download from COREFL"
             )
           ),
           
