@@ -77,9 +77,15 @@ kwicServer <- function(id, token_data, meta_filter, tagged_data = NULL) {
         
         incProgress(0.6, detail = "Processing concordances...")
         
-        # Define flat_tokens FIRST
-        flat_tokens <- unlist(tokens)
-        token_meta <- rep(meta, lengths(tokens))
+        # Define flat_tokens FIRST.
+        # Insert a boundary sentinel between documents so concordance windows
+        # can't bleed across document boundaries (which would over-count
+        # collocates for a node near the start/end of a text).
+        BOUNDARY <- "\u0001DOCBREAK\u0001"
+        tokens_bounded <- lapply(tokens, function(t) c(as.character(t), BOUNDARY))
+        flat_tokens <- unlist(tokens_bounded)
+        # token_meta must align with flat_tokens (including the sentinel slots).
+        token_meta <- rep(meta, lengths(tokens) + 1L)
         
         cat("Flat tokens created. Total:", length(flat_tokens), "\n")
         cat("First 20 tokens:", paste(head(flat_tokens, 20), collapse = " | "), "\n")
@@ -164,9 +170,14 @@ kwicServer <- function(id, token_data, meta_filter, tagged_data = NULL) {
       
       final_choices <- c(left_cols, "match", right_cols)
       
+      # Preserve the user's current column choice; only default to "match"
+      # when their previous choice is no longer available.
+      current <- isolate(input$count_column)
+      selected <- if (!is.null(current) && current %in% final_choices) current else "match"
+      
       updateSelectInput(session, "count_column",
                         choices = setNames(final_choices, final_choices),
-                        selected = "match")
+                        selected = selected)
     })
     
     # Return Reactives ----
@@ -297,11 +308,21 @@ collocationServer <- function(id, kwic_results, token_data = NULL, meta_filter =
   moduleServer(id, function(input, output, session) {
     
     # 1. Dynamic UI Updates ----
+    # Populate the available position choices when KWIC results change.
+    # IMPORTANT: preserve the user's current selection - only fall back to the
+    # left1/right1 default when nothing valid is currently selected. Otherwise
+    # this observer re-fires and overwrites the user's choices every time.
     observe({
       req(kwic_results$has_results())
       df <- kwic_results$result_data()
       pos_cols <- names(df)[grepl("^(left|right)\\d+$", names(df))]
-      updateCheckboxGroupInput(session, "analysis_positions", choices = pos_cols, selected = c("left1", "right1"))
+      
+      current <- isolate(input$analysis_positions)
+      still_valid <- intersect(current, pos_cols)
+      selected <- if (length(still_valid) > 0) still_valid else intersect(c("left1", "right1"), pos_cols)
+      
+      updateCheckboxGroupInput(session, "analysis_positions",
+                               choices = pos_cols, selected = selected)
     })
     
     # Position-selection shortcut buttons.

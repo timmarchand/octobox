@@ -14,7 +14,7 @@ library(tibble)
 process_text_for_tokenization_optimized <- function(text, remove_punct = TRUE) {
   start_time <- Sys.time()
   text_processed <- text
-
+  
   # A. Contraction Normalization (Vectorized)
   contraction_patterns <- c(
     "[\u2019\u2018\u0060\u00B4\u2032''`´′]" = "'",
@@ -29,11 +29,11 @@ process_text_for_tokenization_optimized <- function(text, remove_punct = TRUE) {
     "([A-Za-z]+)'m"  = "\\1 'm",
     "([A-Za-z]+)'s\\b" = "\\1 's"
   )
-
+  
   for (pattern in names(contraction_patterns)) {
     text_processed <- gsub(pattern, contraction_patterns[pattern], text_processed, perl = TRUE)
   }
-
+  
   # B. Punctuation Padding (If retaining)
   if (!remove_punct) {
     text_processed <- gsub("([.!?;:])([A-Za-z])", "\\1 \\2", text_processed, perl = TRUE)
@@ -41,7 +41,7 @@ process_text_for_tokenization_optimized <- function(text, remove_punct = TRUE) {
     text_processed <- gsub('(["\'])([A-Za-z])', "\\1 \\2", text_processed, perl = TRUE)
     text_processed <- gsub('([A-Za-z])(["\'])', "\\1 \\2", text_processed, perl = TRUE)
   }
-
+  
   cat("Text processed in:", round(as.numeric(Sys.time() - start_time), 3), "s\n")
   return(text_processed)
 }
@@ -60,25 +60,25 @@ process_pasted_text <- function(pasted_text) {
   if (is.null(pasted_text) || length(pasted_text) == 0) {
     return(list(type = "paste", content = character(0), metadata = character(0)))
   }
-
+  
   # Normalise line endings, then split on blank lines (paragraph boundaries).
   raw <- paste(pasted_text, collapse = "\n")
   raw <- gsub("\r\n?", "\n", raw)
   units <- strsplit(raw, "\n[[:space:]]*\n+", perl = TRUE)[[1]]
-
+  
   # Fall back to line-by-line if there were no blank-line separators.
   if (length(units) <= 1) {
     units <- strsplit(raw, "\n", fixed = TRUE)[[1]]
   }
-
+  
   # Collapse internal newlines within a unit to single spaces, then clean.
   units <- gsub("[[:space:]]*\n[[:space:]]*", " ", units, perl = TRUE)
   content <- clean_text_input(units)
-
+  
   if (length(content) == 0) {
     return(list(type = "paste", content = character(0), metadata = character(0)))
   }
-
+  
   list(
     type = "paste",
     content = content,
@@ -97,19 +97,19 @@ create_stopword_list <- function(language = "en",
                                  include_contractions = TRUE,
                                  custom_stopwords = "",
                                  mode = "add") {
-
+  
   # Parse custom words (one per line), trimmed and de-blanked.
   custom <- character(0)
   if (!is.null(custom_stopwords) && nzchar(trimws(custom_stopwords))) {
     custom <- trimws(strsplit(custom_stopwords, "\r?\n")[[1]])
     custom <- custom[nzchar(custom)]
   }
-
+  
   # "replace" mode: ignore the base list entirely, use only custom words.
   if (identical(mode, "replace")) {
     return(unique(tolower(custom)))
   }
-
+  
   # Base list from quanteda. snowball covers en/es/fr/de/it; ja/zh need the
   # stopwords-iso source, which may not be installed - fall back gracefully.
   base <- tryCatch({
@@ -123,14 +123,14 @@ create_stopword_list <- function(language = "en",
     tryCatch(quanteda::stopwords("en", source = "snowball"),
              error = function(e2) character(0))
   })
-
+  
   # Contraction fragments produced by the tokenizer's normalisation step.
   contractions <- character(0)
   if (isTRUE(include_contractions)) {
     contractions <- c("n't", "'s", "'re", "'ve", "'ll", "'d", "'m",
                       "na", "ta")  # gonna/gotta fragments
   }
-
+  
   unique(tolower(c(base, contractions, custom)))
 }
 
@@ -169,7 +169,7 @@ read_corpus_files <- function(file_input, metadata_assignments = NULL) {
   
   all_content  <- character(0)
   all_metadata <- character(0)
-
+  
   for (i in 1:nrow(file_input)) {
     tryCatch({
       content <- paste(readLines(file_input$datapath[i], warn=F, encoding="UTF-8"), collapse=" ")
@@ -190,45 +190,74 @@ read_corpus_files <- function(file_input, metadata_assignments = NULL) {
 quick_conc <- function(tokens, index, n = 5, separated = TRUE, use_regex = FALSE) {
   if (length(tokens) == 0) return(tibble::tibble())
   tokens  <- as.character(tokens)
-   if (use_regex) {
+  
+  # Document-boundary sentinel (inserted by the caller between texts). Windows
+  # must not cross it, and it must never match or appear in context.
+  BOUNDARY <- "\u0001DOCBREAK\u0001"
+  
+  if (use_regex) {
     matches <- grep(index, tokens, ignore.case = TRUE, perl = TRUE)
   } else {
     # For exact match, use tolower on both sides
     matches <- which(tolower(tokens) == tolower(index))
   }
+  # Never treat a boundary sentinel as a match.
+  matches <- matches[tokens[matches] != BOUNDARY]
   
   if (length(matches) == 0) return(tibble::tibble())
-
+  
   results <- list()
   for (i in seq_along(matches)) {
     m_pos <- matches[i]
-    start <- max(1, m_pos - n)
-    end   <- min(length(tokens), m_pos + n)
+    
+    # Clamp the window so it can't cross a boundary sentinel on either side.
+    left_limit  <- max(1, m_pos - n)
+    right_limit <- min(length(tokens), m_pos + n)
+    
+    if (m_pos > 1L) {
+      left_seg <- tokens[left_limit:(m_pos - 1L)]
+      lb <- which(left_seg == BOUNDARY)
+      if (length(lb) > 0) left_limit <- left_limit + max(lb)  # just after last boundary
+    }
+    if (m_pos < length(tokens)) {
+      right_seg <- tokens[(m_pos + 1L):right_limit]
+      rb <- which(right_seg == BOUNDARY)
+      if (length(rb) > 0) right_limit <- m_pos + min(rb) - 1L  # just before first boundary
+    }
+    
+    start <- left_limit
+    end   <- right_limit
     
     if (separated) {
       row <- list(token_id = m_pos)
-      # Left Context
-      left_t <- tokens[start:(m_pos-1)]
+      # Left Context (guard against empty/reversed range at a boundary edge).
+      left_t <- if (start <= (m_pos - 1L)) tokens[start:(m_pos - 1L)] else character(0)
+      left_t <- left_t[left_t != BOUNDARY]
       if(length(left_t) > 0) {
         for(j in seq_along(left_t)) row[[paste0("left", length(left_t)-j+1)]] <- left_t[j]
       }
       row[["match"]] <- tokens[m_pos]
       # Right Context
-      right_t <- tokens[(m_pos+1):end]
+      right_t <- if ((m_pos + 1L) <= end) tokens[(m_pos + 1L):end] else character(0)
+      right_t <- right_t[right_t != BOUNDARY]
       if(length(right_t) > 0) {
         for(j in seq_along(right_t)) row[[paste0("right", j)]] <- right_t[j]
       }
       results[[i]] <- row
     } else {
+      left_t  <- if (start <= (m_pos - 1L)) tokens[start:(m_pos - 1L)] else character(0)
+      left_t  <- left_t[left_t != BOUNDARY]
+      right_t <- if ((m_pos + 1L) <= end) tokens[(m_pos + 1L):end] else character(0)
+      right_t <- right_t[right_t != BOUNDARY]
       results[[i]] <- list(
         token_id = m_pos,
-        pre      = paste(tokens[start:(m_pos-1)], collapse = " "),
+        pre      = paste(left_t, collapse = " "),
         keyword  = tokens[m_pos],
-        post     = paste(tokens[(m_pos+1):end], collapse = " ")
+        post     = paste(right_t, collapse = " ")
       )
     }
   }
-
+  
   # Column Ordering Logic
   if (length(results) > 0) {
     if (separated) {
