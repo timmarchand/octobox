@@ -211,6 +211,14 @@ kwicResultsServer <- function(id, kwic_return) {
     separated   <- kwic_return$separated
     kwic_counted_results <- reactiveVal(NULL)
     
+    # Clear any applied position-counting result when a NEW search runs.
+    # Otherwise the display (which prefers kwic_counted_results over
+    # result_data) keeps showing the previous search's counted table and new
+    # searches appear not to register.
+    observeEvent(result_data(), {
+      kwic_counted_results(NULL)
+    }, ignoreNULL = FALSE)
+    
     
     output$has_results <- reactive({
       data <- result_data()
