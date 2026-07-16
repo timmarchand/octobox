@@ -26,7 +26,7 @@ posServer <- function(id, token_data, meta_filter, values, tagged_data = NULL) {
       
       withProgress(message = 'Analyzing POS distribution...', value = 0, {
         
-         pos_current_data <- NULL
+        pos_current_data <- NULL
         
         if (use_udpipe) {
           # 3a. UDPipe-Based Analysis ----
@@ -55,41 +55,41 @@ posServer <- function(id, token_data, meta_filter, values, tagged_data = NULL) {
           # Choose tag system
           tag_col <- if (input$pos_tag_system %||% "xpos" == "upos") "upos" else "xpos"
           
-    # Aggregate by POS tag and meta
-pos_summary <- df %>%
-  dplyr::group_by(meta, !!rlang::sym(tag_col)) %>%
-  dplyr::summarize(count = dplyr::n(), .groups = "drop")
-
-# Check that meta column exists
-if (!"meta" %in% names(pos_summary)) {
-  cat("ERROR: meta column missing after aggregation!\n")
-  showNotification("Error: Meta information lost during analysis", type = "error")
-  return()
-}
-
-# Rename tag column to standardized_pos
-names(pos_summary)[names(pos_summary) == tag_col] <- "standardized_pos"
-
-# Add percentages
-pos_summary <- pos_summary %>%
-  dplyr::group_by(meta) %>%
-  dplyr::mutate(
-    percentage = round(count / sum(count) * 100, 2)
-  ) %>%
-  dplyr::ungroup() %>%
-  dplyr::arrange(meta, desc(count))
-
-# Verify meta column still exists
-cat("UDPipe analysis - columns:", paste(names(pos_summary), collapse = ", "), "\n")
-cat("UDPipe analysis - meta values:", paste(unique(pos_summary$meta), collapse = ", "), "\n")
-
-      pos_current_data <- pos_summary 
-
+          # Aggregate by POS tag and meta
+          pos_summary <- df %>%
+            dplyr::group_by(meta, !!rlang::sym(tag_col)) %>%
+            dplyr::summarize(count = dplyr::n(), .groups = "drop")
+          
+          # Check that meta column exists
+          if (!"meta" %in% names(pos_summary)) {
+            cat("ERROR: meta column missing after aggregation!\n")
+            showNotification("Error: Meta information lost during analysis", type = "error")
+            return()
+          }
+          
+          # Rename tag column to standardized_pos
+          names(pos_summary)[names(pos_summary) == tag_col] <- "standardized_pos"
+          
+          # Add percentages
+          pos_summary <- pos_summary %>%
+            dplyr::group_by(meta) %>%
+            dplyr::mutate(
+              percentage = round(count / sum(count) * 100, 2)
+            ) %>%
+            dplyr::ungroup() %>%
+            dplyr::arrange(meta, desc(count))
+          
+          # Verify meta column still exists
+          cat("UDPipe analysis - columns:", paste(names(pos_summary), collapse = ", "), "\n")
+          cat("UDPipe analysis - meta values:", paste(unique(pos_summary$meta), collapse = ", "), "\n")
+          
+          pos_current_data <- pos_summary 
+          
         } 
-         
-         
-         
-         else {
+        
+        
+        
+        else {
           # 3b. Pattern-Based Analysis ----
           cat("Using pattern-based POS analysis\n")
           
@@ -169,18 +169,18 @@ cat("UDPipe analysis - meta values:", paste(unique(pos_summary$meta), collapse =
             
             if ("PoS" %in% names(pos_data_joined)) {
               pos_data_joined$raw_pos <- ifelse(!is.na(pos_data_joined$PoS), 
-                                                 as.character(pos_data_joined$PoS), 
-                                                 pos_data_joined$raw_pos)
+                                                as.character(pos_data_joined$PoS), 
+                                                pos_data_joined$raw_pos)
             }
             if ("coca_PoS" %in% names(pos_data_joined)) {
               pos_data_joined$raw_pos <- ifelse(is.na(pos_data_joined$raw_pos) & !is.na(pos_data_joined$coca_PoS), 
-                                                 as.character(pos_data_joined$coca_PoS), 
-                                                 pos_data_joined$raw_pos)
+                                                as.character(pos_data_joined$coca_PoS), 
+                                                pos_data_joined$raw_pos)
             }
             if ("DomPoS" %in% names(pos_data_joined)) {
               pos_data_joined$raw_pos <- ifelse(is.na(pos_data_joined$raw_pos) & !is.na(pos_data_joined$DomPoS), 
-                                                 as.character(pos_data_joined$DomPoS), 
-                                                 pos_data_joined$raw_pos)
+                                                as.character(pos_data_joined$DomPoS), 
+                                                pos_data_joined$raw_pos)
             }
           } else {
             pos_data_joined$raw_pos <- NA_character_
@@ -223,10 +223,10 @@ cat("UDPipe analysis - meta values:", paste(unique(pos_summary$meta), collapse =
           pos_current_data <- pos_summary
           
           cat("Pattern-based POS analysis complete:", nrow(pos_summary), "rows\n")
-        
-            
+          
+          
           pos_current_data <- pos_summary  
-          }
+        }
         
         incProgress(0.9, detail = "Generating charts...")
         
@@ -257,138 +257,134 @@ cat("UDPipe analysis - meta values:", paste(unique(pos_summary$meta), collapse =
     })
     outputOptions(output, "pos_charts_available", suspendWhenHidden = FALSE)
     
-  # 5. Main POS Plot ----
-output$pos_plot <- renderPlot({
-  req(pos_charts_generated())
-  req(pos_data())
-  
-  data <- pos_data()
-  
-  if (is.null(data) || nrow(data) == 0) {
-    return(ggplot2::ggplot() +
-             ggplot2::annotate("text", x = 1, y = 1,
-                              label = "No PoS data available",
-                              size = 6) +
-             ggplot2::theme_void())
-  }
-  
-  # Validate inputs with defaults
-  top_n <- if(is.null(input$pos_top_n) || is.na(input$pos_top_n)) 8 else input$pos_top_n
-  plot_type <- if(is.null(input$pos_comparison_type)) "grouped" else input$pos_comparison_type
-  show_percentages <- if(is.null(input$pos_proportional)) TRUE else input$pos_proportional
-  
-  # Get top PoS tags
-  top_pos <- data %>%
-    dplyr::group_by(standardized_pos) %>%
-    dplyr::summarise(total_count = sum(count), .groups = "drop") %>%
-    dplyr::arrange(desc(total_count)) %>%
-    dplyr::slice_head(n = top_n) %>%
-    dplyr::pull(standardized_pos)
-  
-  plot_data <- data %>%
-    dplyr::filter(standardized_pos %in% top_pos)
-  
-  # Check if we're using XPOS (Penn Treebank) tags
-  is_penn_treebank <- any(grepl("^[A-Z]{2,4}$", plot_data$standardized_pos))
-  
-  # Calculate proportions if requested
-  if (show_percentages) {
-    plot_data <- plot_data %>%
-      dplyr::group_by(meta) %>%
-      dplyr::mutate(
-        total_tokens = sum(count),
-        percentage = (count / total_tokens) * 100
-      ) %>%
-      dplyr::ungroup()
-    
-    y_var <- "percentage"
-    y_label <- "Percentage (%)"
-    
-    # ADD TAG SYSTEM TO TITLE
-    tag_system_label <- if(is_penn_treebank) " (XPOS Tags)" else " (UPOS Tags)"
-    plot_title <- paste0("Part-of-Speech Distribution (Proportional)", tag_system_label)
-    
-  } else {
-    y_var <- "count"
-    y_label <- "Count"
-    
-    # ADD TAG SYSTEM TO TITLE
-    tag_system_label <- if(is_penn_treebank) " (XPOS Tags)" else " (UPOS Tags)"
-    plot_title <- paste0("Part-of-Speech Distribution (Absolute)", tag_system_label)
-  }
-  
-  # Create ordered factor - DON'T filter out XPOS tags
-  pos_order <- c("NOUN", "VERB", "ADJ", "ADV", "PREP", "DET", "PRON",
-                 "AUX", "CONJ", "NUM", "PART", "MODAL", "ART", "INTERJ", "OTHER")
-  
-  if (is_penn_treebank) {
-    # Using XPOS - don't filter, just order by frequency
-    plot_data <- plot_data %>%
-      dplyr::arrange(desc(count)) %>%
-      dplyr::mutate(
-        standardized_pos = factor(standardized_pos,
-                                 levels = unique(standardized_pos[order(-count)]))
-      )
-  } else {
-    # Using UPOS or pattern-based - filter to standard categories
-    plot_data <- plot_data %>%
-      dplyr::filter(standardized_pos %in% pos_order) %>%
-      dplyr::mutate(
-        standardized_pos = factor(standardized_pos,
-                                 levels = intersect(pos_order, unique(standardized_pos)))
-      )
-  }
-  
-  # Create plot based on selected type
-  if (plot_type == "faceted") {
-    p <- ggplot2::ggplot(plot_data, ggplot2::aes(x = standardized_pos,
-                                                 y = .data[[y_var]],
-                                                 fill = standardized_pos)) +
-      ggplot2::geom_col(alpha = 0.8, width = 0.7) +
-      ggplot2::coord_flip() +
-      ggplot2::facet_wrap(~meta, scales = "free_x") +
-      ggplot2::labs(
-        title = plot_title,
-        x = "Part-of-Speech Tag",
-        y = y_label,
-        caption = paste("Showing top", length(top_pos), "PoS tags per group")
-      ) +
-      ggplot2::theme_minimal() +
-      ggplot2::theme(
-        legend.position = "none",
-        strip.text = ggplot2::element_text(face = "bold", size = 10),
-        plot.title = ggplot2::element_text(size = 14, face = "bold"),
-        axis.text.y = ggplot2::element_text(size = 10),
-        axis.text.x = ggplot2::element_text(size = 9)
-      ) +
-      ggplot2::scale_fill_viridis_d(option = "viridis", alpha = 0.8)
-    
-  } else {
-    p <- ggplot2::ggplot(plot_data, ggplot2::aes(x = standardized_pos,
-                                                 y = .data[[y_var]],
-                                                 fill = meta)) +
-      ggplot2::geom_col(position = "dodge", alpha = 0.8, width = 0.7) +
-      ggplot2::coord_flip() +
-      ggplot2::labs(
-        title = plot_title,
-        x = "Part-of-Speech Tag",
-        y = y_label,
-        fill = "Category",
-        caption = paste("Comparing top", length(top_pos), "PoS tags across groups")
-      ) +
-      ggplot2::theme_minimal() +
-      ggplot2::theme(
-        plot.title = ggplot2::element_text(size = 14, face = "bold", hjust = 0.5),
-        legend.position = "bottom",
-        legend.title = ggplot2::element_text(face = "bold"),
-        axis.text.y = ggplot2::element_text(size = 10),
-        axis.text.x = ggplot2::element_text(size = 9)
-      ) +
-      ggplot2::scale_fill_viridis_d(option = "viridis", alpha = 0.8)
-  }
-  
-  return(p)
-})
+    # 5. Main POS Plot ----
+    output$pos_plot <- renderPlot({
+      req(pos_charts_generated())
+      req(pos_data())
+      
+      data <- pos_data()
+      
+      if (is.null(data) || nrow(data) == 0) {
+        return(ggplot2::ggplot() +
+                 ggplot2::annotate("text", x = 1, y = 1,
+                                   label = "No PoS data available",
+                                   size = 6) +
+                 ggplot2::theme_void())
+      }
+      
+      # Validate inputs with defaults
+      top_n <- if(is.null(input$pos_top_n) || is.na(input$pos_top_n)) 8 else input$pos_top_n
+      plot_type <- if(is.null(input$pos_comparison_type)) "grouped" else input$pos_comparison_type
+      show_percentages <- if(is.null(input$pos_proportional)) TRUE else input$pos_proportional
+      
+      # Get top PoS tags
+      top_pos <- data %>%
+        dplyr::group_by(standardized_pos) %>%
+        dplyr::summarise(total_count = sum(count), .groups = "drop") %>%
+        dplyr::arrange(desc(total_count)) %>%
+        dplyr::slice_head(n = top_n) %>%
+        dplyr::pull(standardized_pos)
+      
+      plot_data <- data %>%
+        dplyr::filter(standardized_pos %in% top_pos)
+      
+      # Check if we're using XPOS (Penn Treebank) tags
+      is_penn_treebank <- any(grepl("^[A-Z]{2,4}$", plot_data$standardized_pos))
+      
+      # Calculate proportions if requested
+      if (show_percentages) {
+        plot_data <- plot_data %>%
+          dplyr::group_by(meta) %>%
+          dplyr::mutate(
+            total_tokens = sum(count),
+            percentage = (count / total_tokens) * 100
+          ) %>%
+          dplyr::ungroup()
+        
+        y_var <- "percentage"
+        y_label <- "Percentage (%)"
+        
+        plot_title <- "Part-of-Speech Distribution (Proportional)"
+        
+      } else {
+        y_var <- "count"
+        y_label <- "Count"
+        
+        plot_title <- "Part-of-Speech Distribution (Absolute)"
+      }
+      
+      # Create ordered factor - DON'T filter out XPOS tags
+      pos_order <- c("NOUN", "VERB", "ADJ", "ADV", "PREP", "DET", "PRON",
+                     "AUX", "CONJ", "NUM", "PART", "MODAL", "ART", "INTERJ", "OTHER")
+      
+      if (is_penn_treebank) {
+        # Using XPOS - don't filter, just order by frequency
+        plot_data <- plot_data %>%
+          dplyr::arrange(desc(count)) %>%
+          dplyr::mutate(
+            standardized_pos = factor(standardized_pos,
+                                      levels = unique(standardized_pos[order(-count)]))
+          )
+      } else {
+        # Using UPOS or pattern-based - filter to standard categories
+        plot_data <- plot_data %>%
+          dplyr::filter(standardized_pos %in% pos_order) %>%
+          dplyr::mutate(
+            standardized_pos = factor(standardized_pos,
+                                      levels = intersect(pos_order, unique(standardized_pos)))
+          )
+      }
+      
+      # Create plot based on selected type
+      if (plot_type == "faceted") {
+        p <- ggplot2::ggplot(plot_data, ggplot2::aes(x = standardized_pos,
+                                                     y = .data[[y_var]],
+                                                     fill = standardized_pos)) +
+          ggplot2::geom_col(alpha = 0.8, width = 0.7) +
+          ggplot2::coord_flip() +
+          ggplot2::facet_wrap(~meta, scales = "free_x") +
+          ggplot2::labs(
+            title = plot_title,
+            x = "Part-of-Speech Tag",
+            y = y_label,
+            caption = paste("Showing top", length(top_pos), "PoS tags per group")
+          ) +
+          ggplot2::theme_minimal() +
+          ggplot2::theme(
+            legend.position = "none",
+            strip.text = ggplot2::element_text(face = "bold", size = 10),
+            plot.title = ggplot2::element_text(size = 14, face = "bold"),
+            axis.text.y = ggplot2::element_text(size = 10),
+            axis.text.x = ggplot2::element_text(size = 9)
+          ) +
+          ggplot2::scale_fill_viridis_d(option = "viridis", alpha = 0.8)
+        
+      } else {
+        p <- ggplot2::ggplot(plot_data, ggplot2::aes(x = standardized_pos,
+                                                     y = .data[[y_var]],
+                                                     fill = meta)) +
+          ggplot2::geom_col(position = "dodge", alpha = 0.8, width = 0.7) +
+          ggplot2::coord_flip() +
+          ggplot2::labs(
+            title = plot_title,
+            x = "Part-of-Speech Tag",
+            y = y_label,
+            fill = "Category",
+            caption = paste("Comparing top", length(top_pos), "PoS tags across groups")
+          ) +
+          ggplot2::theme_minimal() +
+          ggplot2::theme(
+            plot.title = ggplot2::element_text(size = 14, face = "bold", hjust = 0.5),
+            legend.position = "bottom",
+            legend.title = ggplot2::element_text(face = "bold"),
+            axis.text.y = ggplot2::element_text(size = 10),
+            axis.text.x = ggplot2::element_text(size = 9)
+          ) +
+          ggplot2::scale_fill_viridis_d(option = "viridis", alpha = 0.8)
+      }
+      
+      return(p)
+    })
     
     # 6. Download Handlers ----
     # 6a. Plot Download ----
