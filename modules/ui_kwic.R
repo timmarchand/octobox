@@ -105,15 +105,15 @@ kwicResultsUI <- function(id) {
     conditionalPanel(
       condition = sprintf("output['%s']", ns("has_results")),
       
-      # 2.1. Dynamic Counting Panel ----
+      # 2.1. Word-pattern counting panel ----
       div(
         style = "margin-bottom: 15px; padding: 15px; border: 1px solid #ddd; border-radius: 5px; background-color: #f8f9fa;",
-        checkboxInput(ns("enable_counting"), "📊 Enable Dynamic Position Counting", value = FALSE),
+        checkboxInput(ns("enable_counting"), "📊 Count Word Patterns", value = FALSE),
         
         conditionalPanel(
           condition = sprintf("input['%s']", ns("enable_counting")),
           hr(),
-          h6("🔢 Multi-Column Frequency Analysis"),
+          h6("Which words most often fill the positions you select?"),
           fluidRow(
             column(6,
                    checkboxGroupInput(ns("count_columns"), "Count by Position(s):", choices = NULL),
@@ -123,10 +123,10 @@ kwicResultsUI <- function(id) {
                        actionButton(ns("clear_position_selection"), "🗑️ Clear", class = "btn-xs"))
             ),
             column(6,
-                   selectInput(ns("sort_method"), "Sort Method:",
-                               choices = list("Frequency (Desc)" = "desc_count", "Alpha" = "alpha_asc")),
-                   numericInput(ns("max_combinations"), "Show Top N:", value = 50, step = 10),
-                   actionButton(ns("apply_counting"), "Apply Analysis", class = "btn-primary btn-sm btn-block")
+                   numericInput(ns("max_combinations"), "Limit to top N patterns:", value = 50, step = 10),
+                   helpText(style = "margin-top: -6px; font-size: 12px;",
+                            "Keeps the most frequent patterns; click any column header to re-sort."),
+                   actionButton(ns("apply_counting"), "Apply", class = "btn-primary btn-sm btn-block")
             )
           )
         )

@@ -288,12 +288,21 @@ kwicResultsServer <- function(id, kwic_return) {
         
         freq_table <- table(combos)
         
-        # Sort and Filter
+        # Attach each row's pattern and its frequency.
         df$count_by_sort <- as.numeric(freq_table[combos])
         df$combination_value <- combos
         
-        # Apply sorting logic based on input$sort_method...
-        # (Logic omitted for brevity, assuming standard sort implementation)
+        # Sort by pattern frequency (most common patterns first). The table is
+        # click-sortable afterwards, so we don't offer a separate sort control.
+        df <- df[order(-df$count_by_sort), , drop = FALSE]
+        
+        # Limit to the top N most frequent patterns (not top N rows), so a
+        # common pattern's lines aren't cut off mid-group.
+        top_n <- input$max_combinations %||% 50
+        if (!is.na(top_n) && top_n > 0) {
+          top_patterns <- names(sort(freq_table, decreasing = TRUE))[seq_len(min(top_n, length(freq_table)))]
+          df <- df[df$combination_value %in% top_patterns, , drop = FALSE]
+        }
         
         kwic_counted_results(df)
         incProgress(1)
