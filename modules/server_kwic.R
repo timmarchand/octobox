@@ -4,6 +4,17 @@
 
 # KWIC Server Module ----------------------------------------------------------
 
+# Order left/right position columns by their numeric index, not lexically, so
+# right2 comes before right10 (plain sort() puts "right10" before "right2").
+# Left columns run inward -> outward is reversed for display (left10..left1).
+order_positions <- function(cols, side = c("left", "right")) {
+  side <- match.arg(side)
+  cols <- cols[grepl(paste0("^", side, "\\d+$"), cols)]
+  if (length(cols) == 0) return(character(0))
+  nums <- as.integer(gsub("\\D", "", cols))
+  if (side == "left") cols[order(nums, decreasing = TRUE)] else cols[order(nums)]
+}
+
 # At the top of the function signature:
 kwicServer <- function(id, token_data, meta_filter, tagged_data = NULL) {
   moduleServer(id, function(input, output, session) {
@@ -170,10 +181,10 @@ kwicServer <- function(id, token_data, meta_filter, tagged_data = NULL) {
       df <- tryCatch(result_data(), error = function(e) NULL)
       req(df, nrow(df) > 0, input$separated)
       
-      # Identify and sort position columns
+      # Identify and sort position columns (numeric order, not lexical)
       position_cols <- names(df)[grepl("^(left|right)\\d+$", names(df))]
-      left_cols  <- sort(position_cols[grepl("^left", position_cols)], decreasing = TRUE)
-      right_cols <- sort(position_cols[grepl("^right", position_cols)])
+      left_cols  <- order_positions(position_cols, "left")
+      right_cols <- order_positions(position_cols, "right")
       
       final_choices <- c(left_cols, "match", right_cols)
       
@@ -235,8 +246,11 @@ kwicResultsServer <- function(id, kwic_return) {
       req(df, nrow(df) > 0)
       
       position_cols <- names(df)[grepl("^(left|right)\\d+$", names(df))]
+      left_cols  <- order_positions(position_cols, "left")
+      right_cols <- order_positions(position_cols, "right")
       other_cols <- intersect(c("match", "meta"), names(df))
-      all_countable <- c(position_cols, other_cols)
+      all_countable <- c(left_cols, intersect("match", other_cols), right_cols,
+                         setdiff(other_cols, "match"))
       
       updateCheckboxGroupInput(session, "count_columns",
                                choices = setNames(all_countable, all_countable),
@@ -331,7 +345,8 @@ collocationServer <- function(id, kwic_results, token_data = NULL, meta_filter =
     observe({
       req(kwic_results$has_results())
       df <- kwic_results$result_data()
-      pos_cols <- names(df)[grepl("^(left|right)\\d+$", names(df))]
+      raw_pos <- names(df)[grepl("^(left|right)\\d+$", names(df))]
+      pos_cols <- c(order_positions(raw_pos, "left"), order_positions(raw_pos, "right"))
       
       current <- isolate(input$analysis_positions)
       still_valid <- intersect(current, pos_cols)
