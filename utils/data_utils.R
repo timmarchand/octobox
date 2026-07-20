@@ -231,17 +231,19 @@ quick_conc <- function(tokens, index, n = 5, separated = TRUE, use_regex = FALSE
     if (separated) {
       row <- list(token_id = m_pos)
       # Left Context (guard against empty/reversed range at a boundary edge).
+      # Zero-pad the index (left01..left12) so columns sort numerically wherever
+      # they're listed - table, dropdowns, downloads - without custom sorting.
       left_t <- if (start <= (m_pos - 1L)) tokens[start:(m_pos - 1L)] else character(0)
       left_t <- left_t[left_t != BOUNDARY]
       if(length(left_t) > 0) {
-        for(j in seq_along(left_t)) row[[paste0("left", length(left_t)-j+1)]] <- left_t[j]
+        for(j in seq_along(left_t)) row[[sprintf("left%02d", length(left_t)-j+1)]] <- left_t[j]
       }
       row[["match"]] <- tokens[m_pos]
       # Right Context
       right_t <- if ((m_pos + 1L) <= end) tokens[(m_pos + 1L):end] else character(0)
       right_t <- right_t[right_t != BOUNDARY]
       if(length(right_t) > 0) {
-        for(j in seq_along(right_t)) row[[paste0("right", j)]] <- right_t[j]
+        for(j in seq_along(right_t)) row[[sprintf("right%02d", j)]] <- right_t[j]
       }
       results[[i]] <- row
     } else {

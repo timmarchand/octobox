@@ -350,7 +350,7 @@ collocationServer <- function(id, kwic_results, token_data = NULL, meta_filter =
       
       current <- isolate(input$analysis_positions)
       still_valid <- intersect(current, pos_cols)
-      selected <- if (length(still_valid) > 0) still_valid else intersect(c("left1", "right1"), pos_cols)
+      selected <- if (length(still_valid) > 0) still_valid else intersect(c("left01", "right01"), pos_cols)
       
       updateCheckboxGroupInput(session, "analysis_positions",
                                choices = pos_cols, selected = selected)
@@ -375,7 +375,7 @@ collocationServer <- function(id, kwic_results, token_data = NULL, meta_filter =
     observeEvent(input$select_immediate, {
       cols <- pos_cols_current()
       updateCheckboxGroupInput(session, "analysis_positions",
-                               selected = intersect(c("left1", "right1"), cols))
+                               selected = intersect(c("left01", "right01"), cols))
     })
     
     # Corpus frequency table + total size, computed once per token set.
@@ -410,7 +410,7 @@ collocationServer <- function(id, kwic_results, token_data = NULL, meta_filter =
         return(NULL)
       }
       if (is.null(input$analysis_positions) || length(input$analysis_positions) == 0) {
-        showNotification("Select at least one position (e.g. left1, right1) to analyse.",
+        showNotification("Select at least one position (e.g. left01, right01) to analyse.",
                          type = "warning", duration = 6)
         return(NULL)
       }
@@ -554,7 +554,7 @@ collocationServer <- function(id, kwic_results, token_data = NULL, meta_filter =
           stringsAsFactors = FALSE
         )
         pos_df <- as.data.frame(pos_counts, stringsAsFactors = FALSE)
-        names(pos_df) <- positions          # e.g. left1, right1
+        names(pos_df) <- positions          # e.g. left01, right01
         result <- cbind(result, pos_df)
         
         # Minimum frequency filter (total co-occurrence count in window).
