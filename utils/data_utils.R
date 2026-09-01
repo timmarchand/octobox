@@ -135,7 +135,7 @@ create_stopword_list <- function(language = "en",
 }
 
 # -----------------------------------------------------------------------------
-# 2. FILE INGESTION LOGIC ----
+# 2. FILE LOADING LOGIC ----
 # -----------------------------------------------------------------------------
 
 # In utils/data_utils.R (or wherever read_uploaded_file is defined):
@@ -195,34 +195,64 @@ quick_conc <- function(tokens, index, n = 5, separated = TRUE, use_regex = FALSE
   # must not cross it, and it must never match or appear in context.
   BOUNDARY <- "\u0001DOCBREAK\u0001"
   
-  if (use_regex) {
-    matches <- grep(index, tokens, ignore.case = TRUE, perl = TRUE)
-  } else {
-    # For exact match, use tolower on both sides
-    matches <- which(tolower(tokens) == tolower(index))
-  }
-  # Never treat a boundary sentinel as a match.
-  matches <- matches[tokens[matches] != BOUNDARY]
+  # Split the search into tokens. A multi-word query like "and so on" must
+  # match a consecutive RUN of tokens, not a single token literally spelled
+  # that way - so we detect phrases and match the sequence.
+  index_tokens <- strsplit(trimws(index), "\\s+")[[1]]
+  index_tokens <- index_tokens[index_tokens != ""]
+  phrase_len <- length(index_tokens)
   
-  if (length(matches) == 0) return(tibble::tibble())
+  match_spans <- list()  # each entry: c(start_pos, end_pos)
+  
+  if (phrase_len <= 1) {
+    # Single-token search (original behaviour).
+    if (use_regex) {
+      hits <- grep(index, tokens, ignore.case = TRUE, perl = TRUE)
+    } else {
+      hits <- which(tolower(tokens) == tolower(index))
+    }
+    hits <- hits[tokens[hits] != BOUNDARY]
+    match_spans <- lapply(hits, function(p) c(p, p))
+  } else {
+    # Multi-token phrase: slide over the stream and test each window of
+    # phrase_len tokens against the query sequence.
+    tl <- tolower(tokens)
+    last_start <- length(tokens) - phrase_len + 1L
+    if (last_start >= 1L) for (p in seq_len(last_start)) {
+      seg <- tokens[p:(p + phrase_len - 1L)]
+      if (any(seg == BOUNDARY)) next  # phrase can't span a document boundary
+      seg_l <- tl[p:(p + phrase_len - 1L)]
+      ok <- if (use_regex) {
+        all(mapply(function(pat, tok) grepl(pat, tok, ignore.case = TRUE, perl = TRUE),
+                   index_tokens, seg))
+      } else {
+        all(seg_l == tolower(index_tokens))
+      }
+      if (isTRUE(ok)) match_spans[[length(match_spans) + 1L]] <- c(p, p + phrase_len - 1L)
+    }
+  }
+  
+  if (length(match_spans) == 0) return(tibble::tibble())
   
   results <- list()
-  for (i in seq_along(matches)) {
-    m_pos <- matches[i]
+  for (i in seq_along(match_spans)) {
+    m_start <- match_spans[[i]][1]
+    m_end   <- match_spans[[i]][2]
+    m_pos   <- m_start  # token_id anchor = phrase start
     
     # Clamp the window so it can't cross a boundary sentinel on either side.
-    left_limit  <- max(1, m_pos - n)
-    right_limit <- min(length(tokens), m_pos + n)
+    left_limit  <- max(1, m_start - n)
+    right_limit <- min(length(tokens), m_end + n)
     
-    if (m_pos > 1L) {
-      left_seg <- tokens[left_limit:(m_pos - 1L)]
+    if (m_start > 1L) {
+      left_seg <- tokens[left_limit:(m_start - 1L)]
       lb <- which(left_seg == BOUNDARY)
       if (length(lb) > 0) left_limit <- left_limit + max(lb)  # just after last boundary
     }
-    if (m_pos < length(tokens)) {
-      right_seg <- tokens[(m_pos + 1L):right_limit]
+    if (m_end < length(tokens)) {
+      right_seg <- tokens[(m_end + 1L):right_limit]
       rb <- which(right_seg == BOUNDARY)
-      if (length(rb) > 0) right_limit <- m_pos + min(rb) - 1L  # just before first boundary
+      if (length(rb) > 0) right_limit <- m_end + min(rb) - 1L  # just before first boundary
     }
     
     start <- left_limit
@@ -233,28 +263,29 @@ quick_conc <- function(tokens, index, n = 5, separated = TRUE, use_regex = FALSE
       # Left Context (guard against empty/reversed range at a boundary edge).
       # Zero-pad the index (left01..left12) so columns sort numerically wherever
       # they're listed - table, dropdowns, downloads - without custom sorting.
-      left_t <- if (start <= (m_pos - 1L)) tokens[start:(m_pos - 1L)] else character(0)
+      left_t <- if (start <= (m_start - 1L)) tokens[start:(m_start - 1L)] else character(0)
       left_t <- left_t[left_t != BOUNDARY]
       if(length(left_t) > 0) {
         for(j in seq_along(left_t)) row[[sprintf("left%02d", length(left_t)-j+1)]] <- left_t[j]
       }
-      row[["match"]] <- tokens[m_pos]
+      # Match column holds the whole phrase (one token, or the joined run).
+      row[["match"]] <- paste(tokens[m_start:m_end], collapse = " ")
       # Right Context
-      right_t <- if ((m_pos + 1L) <= end) tokens[(m_pos + 1L):end] else character(0)
+      right_t <- if ((m_end + 1L) <= end) tokens[(m_end + 1L):end] else character(0)
       right_t <- right_t[right_t != BOUNDARY]
       if(length(right_t) > 0) {
         for(j in seq_along(right_t)) row[[sprintf("right%02d", j)]] <- right_t[j]
       }
       results[[i]] <- row
     } else {
-      left_t  <- if (start <= (m_pos - 1L)) tokens[start:(m_pos - 1L)] else character(0)
+      left_t  <- if (start <= (m_start - 1L)) tokens[start:(m_start - 1L)] else character(0)
       left_t  <- left_t[left_t != BOUNDARY]
-      right_t <- if ((m_pos + 1L) <= end) tokens[(m_pos + 1L):end] else character(0)
+      right_t <- if ((m_end + 1L) <= end) tokens[(m_end + 1L):end] else character(0)
       right_t <- right_t[right_t != BOUNDARY]
       results[[i]] <- list(
         token_id = m_pos,
         pre      = paste(left_t, collapse = " "),
-        keyword  = tokens[m_pos],
+        keyword  = paste(tokens[m_start:m_end], collapse = " "),
         post     = paste(right_t, collapse = " ")
       )
     }
