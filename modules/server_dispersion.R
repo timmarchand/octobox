@@ -129,17 +129,20 @@ dispersionServer <- function(id, token_data, meta_filter, tagged_data = NULL) {
           
           if (tag_col %in% c("xpos_only", "upos_only", "pos_only")) {
             # POS-only mode: each token is a bare tag (e.g. "nn", "noun").
-            # The search term IS the whole token - match it directly.
+            # Match the tag directly, but honour Use Regex so a family pattern
+            # like "N.*" or "VB.*" works too.
             search_pattern <- search_term
-            use_regex <- FALSE
+            use_regex <- input$use_regex %||% FALSE
           } else if (startsWith(search_term, "_")) {
             # POS-only search within word_TAG tokens: _noun matches anything_NOUN
             search_pattern <- paste0("\\w+", search_term)  # Keep lowercase from search
             use_regex <- TRUE
           } else if (grepl("_", search_term)) {
-            # Already has tag: run_noun or run_verb
+            # Token already carries a tag, e.g. run_NN or a regex like run_V.*
+            # Honour the user's Use Regex choice: ticked -> treat as a regex so
+            # run_V.* matches the verb family; unticked -> exact tagged token.
             search_pattern <- search_term  # Keep as-is
-            use_regex <- FALSE
+            use_regex <- input$use_regex %||% FALSE
           } else {
             # Word without tag: run matches run_verb, run_noun, etc.
             search_pattern <- paste0(search_term, "_\\w+")

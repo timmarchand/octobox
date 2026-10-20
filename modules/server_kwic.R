@@ -124,8 +124,12 @@ kwicServer <- function(id, token_data, meta_filter, tagged_data = NULL) {
             search_pattern <- paste0("\\w+", index)
             use_regex <- TRUE
           } else if (grepl("_", index)) {
+            # Token already carries a tag, e.g. hope_NN or a regex like hope_V.*
+            # Honour the user's Use Regex choice: if they ticked it, the pattern
+            # is a regex (hope_V.* should match the verb family); if not, do an
+            # exact match on the specific tagged token.
             search_pattern <- index
-            use_regex <- FALSE
+            use_regex <- input$use_regex %||% FALSE
           } else {
             search_pattern <- paste0(index, "_\\w+")
             use_regex <- TRUE
